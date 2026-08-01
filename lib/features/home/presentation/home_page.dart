@@ -84,20 +84,29 @@ class DashboardPage extends StatelessWidget {
             // Header
             Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/images/orientia.png',
+                    width: 42,
+                    height: 42,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.school, color: Colors.white, size: 22),
+                    ),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Orientation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
+                    Text('Orientia', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
                     Text('Tableau de bord', style: TextStyle(fontSize: 12, color: AppTheme.gray500)),
                   ],
                 ),

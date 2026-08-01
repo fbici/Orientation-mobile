@@ -52,7 +52,7 @@ class _OrientationAppState extends State<OrientationApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Orientation',
+      title: 'Orientia',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: _isLoading
