@@ -1,0 +1,11 @@
+include: package:flutter_launcher_icons/constants.dart;
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/orientia.png"
+  adaptive_icon_background: "#111827"
+  adaptive_icon_foreground: "assets/images/orientia.png"
+  web:
+    generate: true
+    image_path: "assets/images/orientia.png"
