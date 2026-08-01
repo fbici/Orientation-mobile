@@ -317,11 +317,37 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                             const SizedBox(height: 20),
                             const Text('Verifiez votre email', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                             Text(
-                              'Un email de confirmation a ete envoye a\n${_emailController.text}',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5), height: 1.6),
+                              'Un email de confirmation a ete envoye a :',
+                              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _emailController.text,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                            ),
+                            const SizedBox(height: 20),
+                            // Spam notice
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppTheme.warning.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline, color: AppTheme.warning, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Si vous ne trouvez pas l\'email, verifiez votre dossier spam ou courrier indesirable.',
+                                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6), height: 1.5),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 28),
                             SizedBox(
