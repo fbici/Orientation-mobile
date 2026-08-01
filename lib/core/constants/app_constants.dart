@@ -12,7 +12,7 @@ class AppConstants {
   static const String userKey = 'user_data';
 
   // App
-  static const String appName = 'Orientation';
+  static const String appName = 'Orientia';
   static const String appVersion = '1.0.0';
 
   // Pagination

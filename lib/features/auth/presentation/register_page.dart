@@ -105,17 +105,23 @@ class _RegisterPageState extends State<RegisterPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8)),
-                        ],
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/images/orientia.png',
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(Icons.school_rounded, color: Colors.white, size: 28),
+                        ),
                       ),
-                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 28),
                     ),
                     const SizedBox(height: 28),
 
