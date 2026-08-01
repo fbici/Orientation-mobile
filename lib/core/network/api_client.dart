@@ -58,6 +58,10 @@ class ApiClient {
     return _dio.get('/auth/me');
   }
 
+  Future<Response> verifyEmail(String token) async {
+    return _dio.get('/auth/verify', queryParameters: {'token': token});
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: AppConstants.tokenKey);
     await _storage.delete(key: AppConstants.refreshTokenKey);

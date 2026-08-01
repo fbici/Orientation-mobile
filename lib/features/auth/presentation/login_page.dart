@@ -7,8 +7,9 @@ import '../data/auth_repository.dart';
 class LoginPage extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onLoginSuccess;
+  final VoidCallback? onRegister;
 
-  const LoginPage({super.key, required this.apiClient, required this.onLoginSuccess});
+  const LoginPage({super.key, required this.apiClient, required this.onLoginSuccess, this.onRegister});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -206,6 +207,20 @@ class _LoginPageState extends State<LoginPage> {
                           ],
                         ),
                       ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Create account link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Pas encore de compte ?', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
+                        GestureDetector(
+                          onTap: widget.onRegister,
+                          child: const Text(' Creer un compte', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryLight)),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 32),
