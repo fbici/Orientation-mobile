@@ -3,9 +3,9 @@ import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/login_page.dart';
+import 'features/auth/presentation/register_page.dart';
 import 'features/home/presentation/home_page.dart';
 
-/// Widget principal de l'application
 class OrientationApp extends StatefulWidget {
   const OrientationApp({super.key});
 
@@ -18,6 +18,7 @@ class _OrientationAppState extends State<OrientationApp> {
   late final AuthRepository _authRepo;
   bool _isLoggedIn = false;
   bool _isLoading = true;
+  bool _showRegister = false;
 
   @override
   void initState() {
@@ -35,13 +36,18 @@ class _OrientationAppState extends State<OrientationApp> {
     });
   }
 
-  void _onLoginSuccess() {
-    setState(() => _isLoggedIn = true);
-  }
+  void _onLoginSuccess() => setState(() {
+    _isLoggedIn = true;
+    _showRegister = false;
+  });
 
-  void _onLogout() {
-    setState(() => _isLoggedIn = false);
-  }
+  void _onLogout() => setState(() {
+    _isLoggedIn = false;
+    _showRegister = false;
+  });
+
+  void _showRegisterPage() => setState(() => _showRegister = true);
+  void _showLoginPage() => setState(() => _showRegister = false);
 
   @override
   Widget build(BuildContext context) {
@@ -50,10 +56,31 @@ class _OrientationAppState extends State<OrientationApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: _isLoading
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Chargement...', style: TextStyle(color: AppTheme.gray500)),
+                  ],
+                ),
+              ),
+            )
           : _isLoggedIn
               ? HomePage(apiClient: _apiClient, onLogout: _onLogout)
-              : LoginPage(apiClient: _apiClient, onLoginSuccess: _onLoginSuccess),
+              : _showRegister
+                  ? RegisterPage(
+                      apiClient: _apiClient,
+                      onRegisterSuccess: _showLoginPage,
+                      onBackToLogin: _showLoginPage,
+                    )
+                  : LoginPage(
+                      apiClient: _apiClient,
+                      onLoginSuccess: _onLoginSuccess,
+                      onRegister: _showRegisterPage,
+                    ),
     );
   }
 }
