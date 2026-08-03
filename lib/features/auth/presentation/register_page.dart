@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
@@ -75,9 +76,21 @@ class _RegisterPageState extends State<RegisterPage> {
       });
 
       setState(() => _success = true);
+    } on DioException catch (e) {
+      setState(() {
+        if (e.response?.statusCode == 400) {
+          // Server returned a business error (e.g. email already used)
+          final data = e.response?.data;
+          _error = data is Map<String, dynamic> ? (data['message'] ?? 'Cet email est deja utilise.') : 'Cet email est deja utilise.';
+        } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
+          _error = 'Impossible de joindre le serveur. Verifiez votre connexion.';
+        } else {
+          _error = 'Une erreur est survenue (${e.response?.statusCode ?? 'inconnu'}).';
+        }
+      });
     } catch (e) {
       setState(() {
-        _error = 'Cet email est deja utilise ou une erreur est survenue.';
+        _error = 'Une erreur inattendue est survenue.';
       });
     } finally {
       setState(() => _loading = false);
