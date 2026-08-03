@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
@@ -48,9 +49,22 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await _authRepo.login(_emailController.text.trim(), _passwordController.text);
       widget.onLoginSuccess();
+    } on DioException catch (e) {
+      setState(() {
+        if (e.response?.statusCode == 401) {
+          _error = 'Identifiants incorrects.';
+        } else if (e.response?.statusCode == 403) {
+          _error = 'Compte verrouille ou desactive.';
+        } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
+          _error = 'Impossible de joindre le serveur.';
+        } else {
+          final data = e.response?.data;
+          _error = data is Map<String, dynamic> ? (data['message'] ?? 'Erreur serveur.') : 'Erreur serveur.';
+        }
+      });
     } catch (e) {
       setState(() {
-        _error = 'Identifiants incorrects. Veuillez réessayer.';
+        _error = 'Une erreur inattendue est survenue.';
       });
     } finally {
       setState(() => _loading = false);
