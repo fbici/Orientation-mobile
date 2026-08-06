@@ -347,13 +347,9 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 10),
               _buildActionCard(context, Icons.school_rounded, 'Explorer ecoles', 'Parcourez les universites', AppTheme.primary, AppTheme.primarySurface, () => widget.onNavigate(2)),
               const SizedBox(height: 10),
-              _buildActionCard(context, Icons.upload_file_rounded, 'Uploader releve', 'Importez vos notes', AppTheme.success, AppTheme.successSurface, () async {
-                // TODO: Implement file upload
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Row(children: [Icon(Icons.info_outline, color: Colors.white, size: 18), SizedBox(width: 10), Text('Fonctionnalite bientot disponible')]),
-                  backgroundColor: AppTheme.info,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              _buildActionCard(context, Icons.upload_file_rounded, 'Uploader releve', 'Importez vos notes', AppTheme.success, AppTheme.successSurface, () {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => SimulationPage(apiClient: widget.apiClient),
                 ));
               }),
               const SizedBox(height: 10),
