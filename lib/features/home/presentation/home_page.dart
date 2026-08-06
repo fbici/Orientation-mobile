@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../recommendations/presentation/recommendations_page.dart';
 import '../../universities/presentation/universities_page.dart';
 import '../../profile/presentation/profile_page.dart';
+import '../../simulation/presentation/simulation_page.dart';
 
 class HomePage extends StatefulWidget {
   final ApiClient apiClient;
@@ -273,25 +274,52 @@ class _DashboardPageState extends State<DashboardPage> {
                       style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, height: 1.5),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => widget.onNavigate(1), // Navigue vers l'onglet IA
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => widget.onNavigate(1),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.auto_awesome_rounded, size: 18),
+                                const SizedBox(width: 6),
+                                Text('Recommandation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.auto_awesome_rounded, size: 18),
-                            const SizedBox(width: 8),
-                            Text('Obtenir une recommandation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                          ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => SimulationPage(apiClient: widget.apiClient),
+                              ));
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.calculate_rounded, size: 18),
+                                const SizedBox(width: 6),
+                                Text('Simuler', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

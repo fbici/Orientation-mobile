@@ -129,4 +129,24 @@ class ApiClient {
   Future<Response> getGuides({int page = 0, int size = 20}) async {
     return _dio.get('/guides', queryParameters: {'page': page, 'size': size});
   }
+
+  // === BENIN ORIENTATION ===
+  Future<Response> getBeninFilieres({String? serie, String? university}) async {
+    final params = <String, dynamic>{};
+    if (serie != null) params['serie'] = serie;
+    if (university != null) params['university'] = university;
+    return _dio.get('/benin/orientation/filieres', queryParameters: params);
+  }
+
+  Future<Response> simulateBeninOrientation(Map<String, dynamic> data) async {
+    return _dio.post('/benin/orientation/simulate', data: data);
+  }
+
+  Future<Response> getBeninUniversites() async {
+    return _dio.get('/benin/orientation/universites');
+  }
+
+  Future<Response> getBeninSeries() async {
+    return _dio.get('/benin/orientation/series');
+  }
 }
