@@ -57,41 +57,34 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_acceptTerms) {
-      setState(() => _error = 'Veuillez accepter les conditions d\'utilisation.');
+      setState(() => _error = 'Veuillez accepter les conditions.');
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
 
     try {
-      final result = await _authRepo.register({
+      await _authRepo.register({
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
         'password': _passwordController.text,
       });
-
       setState(() => _success = true);
     } on DioException catch (e) {
       setState(() {
         if (e.response?.statusCode == 400) {
-          // Server returned a business error (e.g. email already used)
           final data = e.response?.data;
-          _error = data is Map<String, dynamic> ? (data['message'] ?? 'Cet email est deja utilise.') : 'Cet email est deja utilise.';
+          _error = data is Map ? (data['message'] ?? 'Cet email est deja utilise.') : 'Cet email est deja utilise.';
         } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
-          _error = 'Impossible de joindre le serveur. Verifiez votre connexion.';
+          _error = 'Impossible de joindre le serveur.';
         } else {
-          _error = 'Une erreur est survenue (${e.response?.statusCode ?? 'inconnu'}).';
+          _error = 'Une erreur est survenue.';
         }
       });
     } catch (e) {
-      setState(() {
-        _error = 'Une erreur inattendue est survenue.';
-      });
+      setState(() => _error = 'Une erreur inattendue est survenue.');
     } finally {
       setState(() => _loading = false);
     }
@@ -101,13 +94,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF1E3A5F)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.darkGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -118,21 +105,30 @@ class _RegisterPageState extends State<RegisterPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        'assets/images/orientia.png',
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(16),
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                          child: const Icon(Icons.school_rounded, color: Colors.white, size: 28),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.asset(
+                          'assets/images/orientia.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.school_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                         ),
                       ),
                     ),
@@ -140,9 +136,23 @@ class _RegisterPageState extends State<RegisterPage> {
 
                     if (!_success) ...[
                       // Title
-                      const Text('Creer un compte', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
-                      const SizedBox(height: 6),
-                      Text('Rejoignez la plateforme Orientation', style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.45))),
+                      Text(
+                        'Creer un compte',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Rejoignez Orientia',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white.withOpacity(0.5),
+                        ),
+                      ),
                       const SizedBox(height: 36),
 
                       // Form card
@@ -150,9 +160,15 @@ class _RegisterPageState extends State<RegisterPage> {
                         padding: const EdgeInsets.all(28),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white.withOpacity(0.08)),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 40, offset: const Offset(0, 20))],
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 40,
+                              offset: const Offset(0, 20),
+                            ),
+                          ],
                         ),
                         child: Form(
                           key: _formKey,
@@ -162,9 +178,19 @@ class _RegisterPageState extends State<RegisterPage> {
                               // Name row
                               Row(
                                 children: [
-                                  Expanded(child: _buildField(controller: _firstNameController, label: 'Prenom', icon: Icons.person_outline_rounded, validator: (v) => v!.isEmpty ? 'Requis' : null)),
+                                  Expanded(child: _buildField(
+                                    controller: _firstNameController,
+                                    label: 'Prenom',
+                                    icon: Icons.person_outline_rounded,
+                                    validator: (v) => v!.isEmpty ? 'Requis' : null,
+                                  )),
                                   const SizedBox(width: 12),
-                                  Expanded(child: _buildField(controller: _lastNameController, label: 'Nom', icon: Icons.person_outline_rounded, validator: (v) => v!.isEmpty ? 'Requis' : null)),
+                                  Expanded(child: _buildField(
+                                    controller: _lastNameController,
+                                    label: 'Nom',
+                                    icon: Icons.person_outline_rounded,
+                                    validator: (v) => v!.isEmpty ? 'Requis' : null,
+                                  )),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -199,7 +225,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                 icon: Icons.lock_outline_rounded,
                                 obscure: !_showPassword,
                                 suffixIcon: IconButton(
-                                  icon: Icon(_showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white.withOpacity(0.3), size: 20),
+                                  icon: Icon(
+                                    _showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                    color: Colors.white.withOpacity(0.3),
+                                    size: 20,
+                                  ),
                                   onPressed: () => setState(() => _showPassword = !_showPassword),
                                 ),
                                 validator: (v) {
@@ -217,7 +247,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                 icon: Icons.lock_outline_rounded,
                                 obscure: !_showConfirmPassword,
                                 suffixIcon: IconButton(
-                                  icon: Icon(_showConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white.withOpacity(0.3), size: 20),
+                                  icon: Icon(
+                                    _showConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                    color: Colors.white.withOpacity(0.3),
+                                    size: 20,
+                                  ),
                                   onPressed: () => setState(() => _showConfirmPassword = !_showConfirmPassword),
                                 ),
                                 validator: (v) {
@@ -227,27 +261,34 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                               const SizedBox(height: 20),
 
-                              // Terms checkbox
+                              // Terms
                               GestureDetector(
                                 onTap: () => setState(() => _acceptTerms = !_acceptTerms),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      width: 20,
-                                      height: 20,
+                                      width: 22,
+                                      height: 22,
                                       decoration: BoxDecoration(
                                         color: _acceptTerms ? AppTheme.primary : Colors.transparent,
-                                        border: Border.all(color: _acceptTerms ? AppTheme.primary : Colors.white.withOpacity(0.2)),
+                                        border: Border.all(
+                                          color: _acceptTerms ? AppTheme.primary : Colors.white.withOpacity(0.2),
+                                        ),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: _acceptTerms ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                                      child: _acceptTerms
+                                          ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                          : null,
                                     ),
-                                    const SizedBox(width: 10),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        'J\'accepte les conditions d\'utilisation et la politique de confidentialite',
-                                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5)),
+                                        'J\'accepte les conditions d\'utilisation',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.white.withOpacity(0.5),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -262,38 +303,60 @@ class _RegisterPageState extends State<RegisterPage> {
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: AppTheme.danger.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: AppTheme.danger.withOpacity(0.2)),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.error_outline, color: AppTheme.danger, size: 18),
+                                      Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 18),
                                       const SizedBox(width: 10),
-                                      Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13))),
+                                      Expanded(
+                                        child: Text(
+                                          _error!,
+                                          style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
 
                               // Submit
-                              ElevatedButton(
-                                onPressed: _loading ? null : _register,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  elevation: 0,
+                              SizedBox(
+                                height: 52,
+                                child: ElevatedButton(
+                                  onPressed: _loading ? null : _register,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: _loading
+                                      ? SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'Creer mon compte',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Icon(Icons.arrow_forward_rounded, size: 20),
+                                          ],
+                                        ),
                                 ),
-                                child: _loading
-                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text('Creer mon compte', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                          SizedBox(width: 8),
-                                          Icon(Icons.arrow_forward_rounded, size: 20),
-                                        ],
-                                      ),
                               ),
                             ],
                           ),
@@ -305,81 +368,120 @@ class _RegisterPageState extends State<RegisterPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Deja un compte ?', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
+                          Text(
+                            'Deja un compte ?',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 13,
+                            ),
+                          ),
                           GestureDetector(
                             onTap: widget.onBackToLogin,
-                            child: const Text(' Se connecter', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13, fontWeight: FontWeight.w600)),
+                            child: Text(
+                              ' Se connecter',
+                              style: TextStyle(
+                                color: AppTheme.primaryLight,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ],
 
-                    // Success state
+                    // Success
                     if (_success) ...[
                       Container(
-                        padding: const EdgeInsets.all(32),
+                        padding: const EdgeInsets.all(36),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white.withOpacity(0.08)),
                         ),
                         child: Column(
                           children: [
                             Container(
-                              width: 64,
-                              height: 64,
+                              width: 72,
+                              height: 72,
                               decoration: BoxDecoration(
                                 color: AppTheme.success.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(999),
                               ),
-                              child: const Icon(Icons.mark_email_read_rounded, color: AppTheme.success, size: 32),
+                              child: Icon(
+                                Icons.mark_email_read_rounded,
+                                color: AppTheme.success,
+                                size: 36,
+                              ),
                             ),
-                            const SizedBox(height: 20),
-                            const Text('Verifiez votre email', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                            const SizedBox(height: 24),
+                            Text(
+                              'Verifiez votre email',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'Un email de confirmation a ete envoye a :',
-                              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5)),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             Text(
                               _emailController.text,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
-                            const SizedBox(height: 20),
-                            // Spam notice
+                            const SizedBox(height: 24),
                             Container(
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: AppTheme.warning.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.info_outline, color: AppTheme.warning, size: 20),
-                                  const SizedBox(width: 10),
+                                  Icon(Icons.info_outline_rounded, color: AppTheme.warning, size: 20),
+                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Si vous ne trouvez pas l\'email, verifiez votre dossier spam ou courrier indesirable.',
-                                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6), height: 1.5),
+                                      'Verifiez votre dossier spam si vous ne trouvez pas l\'email.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.white.withOpacity(0.6),
+                                        height: 1.5,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 32),
                             SizedBox(
                               width: double.infinity,
+                              height: 52,
                               child: ElevatedButton(
                                 onPressed: widget.onBackToLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primary,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
-                                child: const Text('Aller a la connexion', style: TextStyle(fontWeight: FontWeight.w700)),
+                                child: Text(
+                                  'Aller a la connexion',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                                ),
                               ),
                             ),
                           ],
@@ -410,19 +512,30 @@ class _RegisterPageState extends State<RegisterPage> {
       keyboardType: keyboardType,
       obscureText: obscure,
       validator: validator,
-      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500),
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
         prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.3), size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.primary.withOpacity(0.5), width: 1.5)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.danger)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.danger, width: 1.5)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: AppTheme.primary.withOpacity(0.5), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppTheme.danger),
+        ),
       ),
     );
   }

@@ -4,7 +4,6 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
 
-/// Page de connexion
 class LoginPage extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onLoginSuccess;
@@ -40,11 +39,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
 
     try {
       await _authRepo.login(_emailController.text.trim(), _passwordController.text);
@@ -59,13 +54,11 @@ class _LoginPageState extends State<LoginPage> {
           _error = 'Impossible de joindre le serveur.';
         } else {
           final data = e.response?.data;
-          _error = data is Map<String, dynamic> ? (data['message'] ?? 'Erreur serveur.') : 'Erreur serveur.';
+          _error = data is Map ? (data['message'] ?? 'Erreur serveur.') : 'Erreur serveur.';
         }
       });
     } catch (e) {
-      setState(() {
-        _error = 'Une erreur inattendue est survenue.';
-      });
+      setState(() => _error = 'Une erreur inattendue est survenue.');
     } finally {
       setState(() => _loading = false);
     }
@@ -75,13 +68,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF1E3A5F)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.darkGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -92,31 +79,40 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        'assets/images/orientia.png',
-                        width: 64,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(16),
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.4),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
                           ),
-                          child: const Icon(Icons.school_rounded, color: Colors.white, size: 32),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset(
+                          'assets/images/orientia.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.school_rounded,
+                            color: Colors.white,
+                            size: 36,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-
+                    const SizedBox(height: 28),
+                    
                     // Title
-                    const Text(
+                    Text(
                       'Orientia',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 32,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         letterSpacing: -0.5,
@@ -124,20 +120,20 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Connectez-vous à votre espace',
+                      'Connectez-vous a votre espace',
                       style: TextStyle(
                         fontSize: 15,
                         color: Colors.white.withOpacity(0.5),
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 44),
 
                     // Form card
                     Container(
                       padding: const EdgeInsets.all(28),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white.withOpacity(0.08)),
                         boxShadow: [
                           BoxShadow(
@@ -152,18 +148,22 @@ class _LoginPageState extends State<LoginPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Email field
-                            _buildTextField(
+                            // Email
+                            _buildField(
                               controller: _emailController,
                               label: 'Adresse email',
                               icon: Icons.mail_outline_rounded,
                               keyboardType: TextInputType.emailAddress,
-                              validator: (v) => v == null || v.isEmpty ? 'Email requis' : null,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'Requis';
+                                if (!v.contains('@')) return 'Email invalide';
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 18),
 
-                            // Password field
-                            _buildTextField(
+                            // Password
+                            _buildField(
                               controller: _passwordController,
                               label: 'Mot de passe',
                               icon: Icons.lock_outline_rounded,
@@ -176,7 +176,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 onPressed: () => setState(() => _showPassword = !_showPassword),
                               ),
-                              validator: (v) => v == null || v.isEmpty ? 'Mot de passe requis' : null,
+                              validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
                             ),
                             const SizedBox(height: 8),
 
@@ -187,76 +187,90 @@ class _LoginPageState extends State<LoginPage> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: AppTheme.danger.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: AppTheme.danger.withOpacity(0.2)),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: AppTheme.danger, size: 18),
+                                    Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 18),
                                     const SizedBox(width: 10),
-                                    Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13))),
+                                    Expanded(
+                                      child: Text(
+                                        _error!,
+                                        style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
 
-                            // Submit button
-                            ElevatedButton(
-                              onPressed: _loading ? null : _login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
+                            // Submit
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _loading ? null : _login,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _loading
+                                    ? SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Se connecter',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Icon(Icons.arrow_forward_rounded, size: 20),
+                                        ],
+                                      ),
                               ),
-                              child: _loading
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text('Se connecter', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward_rounded, size: 20),
-                                      ],
-                                    ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 28),
 
-                    const SizedBox(height: 32),
-
-                    // Create account link
+                    // Create account
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Pas encore de compte ?', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
+                        Text(
+                          'Pas encore de compte ?',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                            fontSize: 13,
+                          ),
+                        ),
                         GestureDetector(
                           onTap: widget.onRegister,
-                          child: const Text(' Creer un compte', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryLight)),
+                          child: Text(
+                            ' Creer un compte',
+                            style: TextStyle(
+                              color: AppTheme.primaryLight,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Footer
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.shield_outlined, size: 14, color: AppTheme.success.withOpacity(0.8)),
-                          const SizedBox(width: 6),
-                          Text('Connexion sécurisée SSL', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.3))),
-                        ],
-                      ),
                     ),
                   ],
                 ),
@@ -268,7 +282,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -282,33 +296,29 @@ class _LoginPageState extends State<LoginPage> {
       keyboardType: keyboardType,
       obscureText: obscure,
       validator: validator,
-      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500),
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
         prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.3), size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: AppTheme.primary.withOpacity(0.5), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppTheme.danger),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.danger, width: 1.5),
         ),
       ),
     );

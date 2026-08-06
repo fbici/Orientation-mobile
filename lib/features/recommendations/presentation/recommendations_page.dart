@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Page de recommandations
 class RecommendationsPage extends StatefulWidget {
   final ApiClient apiClient;
   const RecommendationsPage({super.key, required this.apiClient});
@@ -12,20 +11,6 @@ class RecommendationsPage extends StatefulWidget {
 }
 
 class _RecommendationsPageState extends State<RecommendationsPage> {
-  final _formKey = GlobalKey<FormState>();
-  String? _bacType;
-  double? _bacAverage;
-  String? _preferredCountry;
-  bool _loading = false;
-  List<dynamic> _results = [];
-
-  final List<String> _bacTypes = [
-    'Sciences Experimentales',
-    'Mathematiques',
-    'Technique',
-    'Litteraire',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -34,165 +19,213 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Recommandations', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            const Text('Trouvez la meilleure orientation pour votre profil', style: TextStyle(fontSize: 13, color: AppTheme.gray500)),
-            const SizedBox(height: 24),
-
-            // Formulaire
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.gray200),
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Votre profil', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 16),
-
-                    // Type de bac
-                    DropdownButtonFormField<String>(
-                      value: _bacType,
-                      decoration: const InputDecoration(labelText: 'Type de baccalaureat'),
-                      items: _bacTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                      onChanged: (v) => setState(() => _bacType = v),
-                      validator: (v) => v == null ? 'Champ requis' : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Moyenne
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Moyenne generale (/20)', hintText: 'ex: 14.5'),
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) => _bacAverage = double.tryParse(v),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Champ requis';
-                        final n = double.tryParse(v);
-                        if (n == null || n < 0 || n > 20) return 'Valeur invalide (0-20)';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Pays préféré
-                    DropdownButtonFormField<String>(
-                      value: _preferredCountry,
-                      decoration: const InputDecoration(labelText: 'Pays prefere (optionnel)'),
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tous les pays')),
-                        DropdownMenuItem(value: 'FRA', child: Text('France')),
-                        DropdownMenuItem(value: 'CAN', child: Text('Canada')),
-                        DropdownMenuItem(value: 'MAR', child: Text('Maroc')),
-                        DropdownMenuItem(value: 'SEN', child: Text('Senegal')),
-                        DropdownMenuItem(value: 'BEN', child: Text('Benin')),
-                        DropdownMenuItem(value: 'USA', child: Text('Etats-Unis')),
-                        DropdownMenuItem(value: 'GBR', child: Text('Royaume-Uni')),
-                      ],
-                      onChanged: (v) => setState(() => _preferredCountry = v),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Bouton
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _loading ? null : _generate,
-                        icon: _loading
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.auto_awesome, size: 18),
-                        label: Text(_loading ? 'Analyse en cours...' : 'Generer les recommandations'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Header
+            Text(
+              'Recommandations IA',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Obtenez des recommandations personnalisees basees sur votre profil academique.',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
 
-            // Résultats
-            if (_results.isNotEmpty) ...[
-              Text('${_results.length} recommandations', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              ..._results.map((r) => _buildResultCard(r)),
-            ],
+            // Hero card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.accent, AppTheme.accent.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accent.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Intelligence Artificielle',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Analyse personnalisee',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Notre IA analyse vos notes, vos preferences et les criteres d\'admission pour vous recommander les meilleurs programmes.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text('Lancer l\'analyse'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.accent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // How it works
+            Text(
+              'Comment ca marche',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            _buildStep(1, 'Remplissez votre profil', 'Vos notes, preferences et objectifs', AppTheme.primary),
+            _buildStep(2, 'L\'IA analyse', 'Comparaison avec les criteres d\'admission', AppTheme.accent),
+            _buildStep(3, 'Recevez vos resultats', 'Programmes classes par compatibilite', AppTheme.success),
+            const SizedBox(height: 28),
+
+            // Recent recommendations
+            Text(
+              'Recommandations recentes',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            _buildEmptyState(),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _generate() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
-
-    try {
-      final response = await widget.apiClient.generateRecommendations({
-        'bacType': _bacType,
-        'bacAverage': _bacAverage,
-        if (_preferredCountry != null) 'preferredCountries': [_preferredCountry],
-      });
-      setState(() {
-        _results = response.data['recommendations'] ?? [];
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de la generation'), backgroundColor: AppTheme.danger),
-      );
-    } finally {
-      setState(() => _loading = false);
-    }
+  Widget _buildStep(int number, String title, String subtitle, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                '$number',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.gray900,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.gray500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildResultCard(dynamic rec) {
-    final score = (rec['score'] ?? 0).toDouble();
-    final scoreColor = score >= 80 ? AppTheme.success : score >= 60 ? AppTheme.primary : score >= 40 ? AppTheme.warning : AppTheme.danger;
-
+  Widget _buildEmptyState() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.gray200),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(rec['programName'] ?? '-', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(rec['universityName'] ?? '-', style: const TextStyle(fontSize: 12, color: AppTheme.gray500)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: scoreColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text('${score.round()}%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: scoreColor)),
-              ),
-            ],
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppTheme.gray100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.auto_awesome_outlined,
+              color: AppTheme.gray400,
+              size: 28,
+            ),
           ),
-          if (rec['explanationSummary'] != null) ...[
-            const SizedBox(height: 10),
-            Text(rec['explanationSummary'], style: const TextStyle(fontSize: 12, color: AppTheme.gray600)),
-          ],
+          const SizedBox(height: 16),
+          Text(
+            'Aucune recommandation',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.gray700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Lancez votre premiere analyse pour obtenir des recommandations personnalisees.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.gray500,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );

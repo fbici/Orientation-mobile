@@ -5,7 +5,6 @@ import '../../recommendations/presentation/recommendations_page.dart';
 import '../../universities/presentation/universities_page.dart';
 import '../../profile/presentation/profile_page.dart';
 
-/// Page d'accueil avec navigation
 class HomePage extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onLogout;
@@ -35,40 +34,78 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        backgroundColor: Colors.white,
-        indicatorColor: AppTheme.primarySurface,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: AppTheme.primary),
-            label: 'Accueil',
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Accueil'),
+                _buildNavItem(1, Icons.auto_awesome_rounded, Icons.auto_awesome_outlined, 'IA'),
+                _buildNavItem(2, Icons.school_rounded, Icons.school_outlined, 'Ecoles'),
+                _buildNavItem(3, Icons.person_rounded, Icons.person_outline_rounded, 'Profil'),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.recommend_outlined),
-            selectedIcon: Icon(Icons.recommend, color: AppTheme.primary),
-            label: 'Recommandations',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.school_outlined),
-            selectedIcon: Icon(Icons.school, color: AppTheme.primary),
-            label: 'Universités',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: AppTheme.primary),
-            label: 'Profil',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    final isActive = _currentIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.primarySurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? activeIcon : inactiveIcon,
+              color: isActive ? AppTheme.primary : AppTheme.gray400,
+              size: 22,
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Dashboard avec KPIs et actions rapides
+/// Dashboard avec design professionnel
 class DashboardPage extends StatelessWidget {
   final ApiClient apiClient;
   const DashboardPage({super.key, required this.apiClient});
@@ -81,145 +118,330 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header avec logo
             Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(
-                    'assets/images/orientia.png',
-                    width: 42,
-                    height: 42,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(10),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Icon(Icons.school, color: Colors.white, size: 22),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/orientia.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.school_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Orientia', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
-                    Text('Tableau de bord', style: TextStyle(fontSize: 12, color: AppTheme.gray500)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            // KPI Cards
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.6,
-              children: [
-                _buildKpiCard(Icons.school, 'Universités', '153', AppTheme.primary),
-                _buildKpiCard(Icons.workspace_premium, 'Programmes', '500+', AppTheme.success),
-                _buildKpiCard(Icons.flag, 'Pays', '42', AppTheme.warning),
-                _buildKpiCard(Icons.recommend, 'Recommandations', '18K+', AppTheme.info),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Actions rapides
-            const Text('Actions rapides', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.gray900)),
-            const SizedBox(height: 12),
-            _buildActionButton(context, Icons.recommend, 'Obtenir une recommandation', 'Basée sur votre profil académique', () {
-              // Navigate to recommendations
-            }),
-            _buildActionButton(context, Icons.search, 'Recherche intelligente', 'Posez une question en langage naturel', () {
-              // Navigate to smart query
-            }),
-            _buildActionButton(context, Icons.upload_file, 'Uploader un relevé', 'Importez votre bulletin scolaire', () {
-              // Navigate to upload
-            }),
-            _buildActionButton(context, Icons.school, 'Explorer les universités', 'Parcourez les établissements', () {
-              // Navigate to universities
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKpiCard(IconData icon, String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.white, size: 18),
-          ),
-          const SizedBox(height: 10),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.gray500, letterSpacing: 0.5)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.gray200),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primarySurface,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: AppTheme.primary, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.gray900)),
-                      Text(subtitle, style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
+                      Text(
+                        'Orientia',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        'Trouvez votre voie',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.gray400),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gray100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.notifications_outlined,
+                    color: AppTheme.gray600,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 28),
+
+            // Carte hero
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'IA Active',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Decouvrez les meilleures\nuniversites pour vous',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Notre IA analyse votre profil et vous recommande les programmes les plus adaptes.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Obtenir une recommandation',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // Statistiques
+            Text(
+              'Statistiques',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _buildStatCard(Icons.school_rounded, '153', 'Universites', AppTheme.primary)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildStatCard(Icons.workspace_premium_rounded, '500+', 'Programmes', AppTheme.success)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildStatCard(Icons.public_rounded, '42', 'Pays', AppTheme.warning)),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            // Actions rapides
+            Text(
+              'Actions rapides',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 14),
+            _buildActionCard(
+              context,
+              Icons.auto_awesome_rounded,
+              'Recommandation IA',
+              'Analyse personnalisee',
+              AppTheme.accent,
+              AppTheme.accentSurface,
+            ),
+            const SizedBox(height: 10),
+            _buildActionCard(
+              context,
+              Icons.search_rounded,
+              'Recherche intelligente',
+              'Posez vos questions',
+              AppTheme.info,
+              AppTheme.infoSurface,
+            ),
+            const SizedBox(height: 10),
+            _buildActionCard(
+              context,
+              Icons.upload_file_rounded,
+              'Uploader releve',
+              'Importez vos notes',
+              AppTheme.success,
+              AppTheme.successSurface,
+            ),
+            const SizedBox(height: 10),
+            _buildActionCard(
+              context,
+              Icons.school_rounded,
+              'Explorer ecoles',
+              'Parcourez les universites',
+              AppTheme.warning,
+              AppTheme.warningSurface,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(IconData icon, String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.gray200),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.gray900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.gray500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color iconColor,
+    Color bgColor,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.gray200),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.gray900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.gray500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.gray100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: AppTheme.gray400,
+                ),
+              ),
+            ],
           ),
         ),
       ),
