@@ -37,10 +37,19 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _error;
   bool _success = false;
 
+  // Pays et villes
+  int _currentStep = 0; // 0 = infos, 1 = pays
+  List<dynamic> _countries = [];
+  List<dynamic> _cities = [];
+  String? _selectedCountryId;
+  String? _selectedCityId;
+  bool _loadingLocations = false;
+
   @override
   void initState() {
     super.initState();
     _authRepo = AuthRepository(widget.apiClient);
+    _loadCountries();
   }
 
   @override
@@ -54,13 +63,38 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (!_acceptTerms) {
-      setState(() => _error = 'Veuillez accepter les conditions.');
-      return;
+  Future<void> _loadCountries() async {
+    setState(() => _loadingLocations = true);
+    try {
+      final response = await widget.apiClient.getCountries();
+      if (mounted) setState(() { _countries = response.data ?? []; _loadingLocations = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loadingLocations = false);
     }
+  }
 
+  Future<void> _loadCities(String countryId) async {
+    setState(() { _cities = []; _selectedCityId = null; });
+    try {
+      final response = await widget.apiClient.getCities(countryId);
+      if (mounted) setState(() => _cities = response.data ?? []);
+    } catch (e) {}
+  }
+
+  void _nextStep() {
+    if (_currentStep == 0) {
+      if (!_formKey.currentState!.validate()) return;
+      if (!_acceptTerms) {
+        setState(() => _error = 'Veuillez accepter les conditions.');
+        return;
+      }
+      setState(() { _currentStep = 1; _error = null; });
+    } else {
+      _register();
+    }
+  }
+
+  Future<void> _register() async {
     setState(() { _loading = true; _error = null; });
 
     try {
@@ -70,6 +104,8 @@ class _RegisterPageState extends State<RegisterPage> {
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
         'password': _passwordController.text,
+        if (_selectedCountryId != null) 'countryId': _selectedCountryId,
+        if (_selectedCityId != null) 'cityId': _selectedCityId,
       });
       setState(() => _success = true);
     } on DioException catch (e) {
@@ -137,7 +173,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     if (!_success) ...[
                       // Title
                       Text(
-                        'Creer un compte',
+                        _currentStep == 0 ? 'Creer un compte' : 'Votre pays',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
@@ -147,13 +183,23 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Rejoignez Orientia',
+                        _currentStep == 0 ? 'Rejoignez Orientia' : 'Pour des recommandations adaptees',
                         style: TextStyle(
                           fontSize: 15,
                           color: Colors.white.withOpacity(0.5),
                         ),
                       ),
-                      const SizedBox(height: 36),
+                      // Steps indicator
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildStepDot(0, 'Informations'),
+                          Container(width: 40, height: 2, color: _currentStep >= 1 ? AppTheme.primary : Colors.white.withOpacity(0.2)),
+                          _buildStepDot(1, 'Pays'),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
 
                       // Form card
                       Container(
@@ -170,197 +216,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ],
                         ),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Name row
-                              Row(
-                                children: [
-                                  Expanded(child: _buildField(
-                                    controller: _firstNameController,
-                                    label: 'Prenom',
-                                    icon: Icons.person_outline_rounded,
-                                    validator: (v) => v!.isEmpty ? 'Requis' : null,
-                                  )),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: _buildField(
-                                    controller: _lastNameController,
-                                    label: 'Nom',
-                                    icon: Icons.person_outline_rounded,
-                                    validator: (v) => v!.isEmpty ? 'Requis' : null,
-                                  )),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Email
-                              _buildField(
-                                controller: _emailController,
-                                label: 'Adresse email',
-                                icon: Icons.mail_outline_rounded,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) return 'Requis';
-                                  if (!v.contains('@')) return 'Email invalide';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Phone
-                              _buildField(
-                                controller: _phoneController,
-                                label: 'Telephone (optionnel)',
-                                icon: Icons.phone_outlined,
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Password
-                              _buildField(
-                                controller: _passwordController,
-                                label: 'Mot de passe',
-                                icon: Icons.lock_outline_rounded,
-                                obscure: !_showPassword,
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                    color: Colors.white.withOpacity(0.3),
-                                    size: 20,
-                                  ),
-                                  onPressed: () => setState(() => _showPassword = !_showPassword),
-                                ),
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) return 'Requis';
-                                  if (v.length < 8) return 'Minimum 8 caracteres';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Confirm password
-                              _buildField(
-                                controller: _confirmPasswordController,
-                                label: 'Confirmer le mot de passe',
-                                icon: Icons.lock_outline_rounded,
-                                obscure: !_showConfirmPassword,
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _showConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                    color: Colors.white.withOpacity(0.3),
-                                    size: 20,
-                                  ),
-                                  onPressed: () => setState(() => _showConfirmPassword = !_showConfirmPassword),
-                                ),
-                                validator: (v) {
-                                  if (v != _passwordController.text) return 'Les mots de passe ne correspondent pas';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 20),
-
-                              // Terms
-                              GestureDetector(
-                                onTap: () => setState(() => _acceptTerms = !_acceptTerms),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 22,
-                                      height: 22,
-                                      decoration: BoxDecoration(
-                                        color: _acceptTerms ? AppTheme.primary : Colors.transparent,
-                                        border: Border.all(
-                                          color: _acceptTerms ? AppTheme.primary : Colors.white.withOpacity(0.2),
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: _acceptTerms
-                                          ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                          : null,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'J\'accepte les conditions d\'utilisation',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.white.withOpacity(0.5),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-
-                              // Error
-                              if (_error != null)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.danger.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: AppTheme.danger.withOpacity(0.2)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 18),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          _error!,
-                                          style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              // Submit
-                              SizedBox(
-                                height: 52,
-                                child: ElevatedButton(
-                                  onPressed: _loading ? null : _register,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primary,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: _loading
-                                      ? SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              'Creer mon compte',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Icon(Icons.arrow_forward_rounded, size: 20),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
                       ),
                       const SizedBox(height: 24),
 
@@ -492,6 +348,178 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepDot(int step, String label) {
+    final isActive = _currentStep >= step;
+    return Column(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Center(
+            child: isActive && _currentStep > step
+                ? Icon(Icons.check, size: 14, color: Colors.white)
+                : Text('${step + 1}', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(isActive ? 0.8 : 0.4))),
+      ],
+    );
+  }
+
+  Widget _buildStep1() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildField(controller: _firstNameController, label: 'Prenom', icon: Icons.person_outline_rounded, validator: (v) => v!.isEmpty ? 'Requis' : null)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildField(controller: _lastNameController, label: 'Nom', icon: Icons.person_outline_rounded, validator: (v) => v!.isEmpty ? 'Requis' : null)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildField(controller: _emailController, label: 'Adresse email', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, validator: (v) { if (v == null || v.isEmpty) return 'Requis'; if (!v.contains('@')) return 'Email invalide'; return null; }),
+          const SizedBox(height: 16),
+          _buildField(controller: _phoneController, label: 'Telephone (optionnel)', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+          const SizedBox(height: 16),
+          _buildField(controller: _passwordController, label: 'Mot de passe', icon: Icons.lock_outline_rounded, obscure: !_showPassword, suffixIcon: IconButton(icon: Icon(_showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white.withOpacity(0.3), size: 20), onPressed: () => setState(() => _showPassword = !_showPassword)), validator: (v) { if (v == null || v.isEmpty) return 'Requis'; if (v.length < 8) return 'Minimum 8 caracteres'; return null; }),
+          const SizedBox(height: 16),
+          _buildField(controller: _confirmPasswordController, label: 'Confirmer le mot de passe', icon: Icons.lock_outline_rounded, obscure: !_showConfirmPassword, suffixIcon: IconButton(icon: Icon(_showConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.white.withOpacity(0.3), size: 20), onPressed: () => setState(() => _showConfirmPassword = !_showConfirmPassword)), validator: (v) { if (v != _passwordController.text) return 'Les mots de passe ne correspondent pas'; return null; }),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () => setState(() => _acceptTerms = !_acceptTerms),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 22, height: 22, decoration: BoxDecoration(color: _acceptTerms ? AppTheme.primary : Colors.transparent, border: Border.all(color: _acceptTerms ? AppTheme.primary : Colors.white.withOpacity(0.2)), borderRadius: BorderRadius.circular(6)), child: _acceptTerms ? const Icon(Icons.check, size: 14, color: Colors.white) : null),
+                const SizedBox(width: 12),
+                Expanded(child: Text('J\'accepte les conditions d\'utilisation', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5)))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (_error != null)
+            Container(margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppTheme.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.danger.withOpacity(0.2))), child: Row(children: [Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 18), const SizedBox(width: 10), Expanded(child: Text(_error!, style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13)))])),
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _nextStep,
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Continuer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)), const SizedBox(width: 8), Icon(Icons.arrow_forward_rounded, size: 20)]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Selectionnez votre pays', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        if (_loadingLocations)
+          Center(child: CircularProgressIndicator(color: AppTheme.primary))
+        else
+          ..._countries.map((c) => _buildCountryOption(c)).toList(),
+        if (_selectedCountryId != null && _cities.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text('Selectionnez votre ville (optionnel)', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          ..._cities.take(10).map((c) => _buildCityOption(c)).toList(),
+        ],
+        const SizedBox(height: 24),
+        if (_error != null)
+          Container(margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppTheme.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.danger.withOpacity(0.2))), child: Row(children: [Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 18), const SizedBox(width: 10), Expanded(child: Text(_error!, style: TextStyle(color: Color(0xFFFCA5A5), fontSize: 13)))])),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _currentStep = 0),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withOpacity(0.2)), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                child: Text('Retour'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _register,
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
+                child: _loading
+                    ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Creer mon compte', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)), const SizedBox(width: 8), Icon(Icons.check_rounded, size: 20)]),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountryOption(dynamic country) {
+    final isSelected = _selectedCountryId == country['id'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedCountryId = country['id']);
+          _loadCities(country['id']);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.public_rounded, color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.4), size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text(country['name'] ?? '', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400))),
+              if (isSelected) Icon(Icons.check_circle_rounded, color: AppTheme.primary, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCityOption(dynamic city) {
+    final isSelected = _selectedCityId == city['id'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedCityId = city['id']),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.location_city_rounded, color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.4), size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(city['name'] ?? '', style: TextStyle(color: Colors.white, fontSize: 13))),
+              if (isSelected) Icon(Icons.check_circle_rounded, color: AppTheme.primary, size: 18),
+            ],
           ),
         ),
       ),
