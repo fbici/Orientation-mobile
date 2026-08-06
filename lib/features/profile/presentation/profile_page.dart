@@ -1,42 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../auth/data/auth_repository.dart';
 
-/// Page de profil
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends StatelessWidget {
   final ApiClient apiClient;
   final VoidCallback onLogout;
 
   const ProfilePage({super.key, required this.apiClient, required this.onLogout});
-
-  @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  late final AuthRepository _authRepo;
-  Map<String, dynamic>? _user;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _authRepo = AuthRepository(widget.apiClient);
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    try {
-      final user = await _authRepo.getProfile();
-      setState(() {
-        _user = user;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,76 +14,113 @@ class _ProfilePageState extends State<ProfilePage> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            // Header
+            Text(
+              'Profil',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 24),
 
-            // Avatar
+            // Profile card
             Container(
-              width: 80,
-              height: 80,
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Center(
-                child: Text(
-                  _getInitials(),
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Name
-            Text(
-              '${_user?['firstName'] ?? ''} ${_user?['lastName'] ?? ''}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.gray900),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _user?['email'] ?? '',
-              style: const TextStyle(fontSize: 13, color: AppTheme.gray500),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final role in _user?['roles'] ?? [])
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primarySurface,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(role, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryDark)),
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
-              ],
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Utilisateur',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Candidat',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
             // Menu items
-            _buildMenuItem(Icons.person_outline, 'Modifier le profil', () {}),
-            _buildMenuItem(Icons.lock_outline, 'Changer le mot de passe', () {}),
-            _buildMenuItem(Icons.notifications_outlined, 'Notifications', () {}),
-            _buildMenuItem(Icons.help_outline, 'Aide et support', () {}),
-            _buildMenuItem(Icons.info_outline, 'A propos', () {}),
-
+            Text(
+              'Parametres',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            _buildMenuItem(Icons.person_outline_rounded, 'Modifier le profil', AppTheme.primary),
+            _buildMenuItem(Icons.lock_outline_rounded, 'Changer le mot de passe', AppTheme.info),
+            _buildMenuItem(Icons.notifications_outlined, 'Notifications', AppTheme.warning),
+            _buildMenuItem(Icons.language_rounded, 'Langue', AppTheme.success),
+            _buildMenuItem(Icons.help_outline_rounded, 'Aide et support', AppTheme.accent),
+            _buildMenuItem(Icons.info_outline_rounded, 'A propos d\'Orientia', AppTheme.gray500),
             const SizedBox(height: 24),
 
             // Logout button
             SizedBox(
               width: double.infinity,
+              height: 52,
               child: OutlinedButton.icon(
-                onPressed: () async {
-                  await _authRepo.logout();
-                  widget.onLogout();
-                },
-                icon: const Icon(Icons.logout, size: 18, color: AppTheme.danger),
-                label: const Text('Se deconnecter', style: TextStyle(color: AppTheme.danger)),
+                onPressed: onLogout,
+                icon: Icon(Icons.logout_rounded, size: 20, color: AppTheme.danger),
+                label: Text(
+                  'Se deconnecter',
+                  style: TextStyle(
+                    color: AppTheme.danger,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.danger),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  side: BorderSide(color: AppTheme.danger.withOpacity(0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Version
+            Center(
+              child: Text(
+                'Orientia v1.0.0',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.gray400,
                 ),
               ),
             ),
@@ -123,33 +130,44 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  String _getInitials() {
-    final first = _user?['firstName'] ?? '';
-    final last = _user?['lastName'] ?? '';
-    return '${first.isNotEmpty ? first[0].toUpperCase() : ''}${last.isNotEmpty ? last[0].toUpperCase() : ''}';
-  }
-
-  Widget _buildMenuItem(IconData icon, String label, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+  Widget _buildMenuItem(IconData icon, String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          onTap: () {},
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppTheme.gray200),
             ),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: AppTheme.gray500),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
                 const SizedBox(width: 14),
-                Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.gray800))),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.gray400),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.gray800,
+                    ),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.gray300),
               ],
             ),
           ),

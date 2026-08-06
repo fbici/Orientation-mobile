@@ -1,10 +1,10 @@
-/// Constantes de l'application Orientation
+/// Constantes de l'application Orientia
 class AppConstants {
-  // API — Changez selon votre environnement
-  // Android Emulator: 10.0.2.2
-  // iOS Simulator: localhost
-  // Appareil physique: IP locale de votre PC (ex: 192.168.1.100)
-  static const String apiBaseUrl = 'http://10.0.2.2:8080/api/v1';
+  // API — Production (Render)
+  static const String apiBaseUrl = 'https://orientation-backend-4lcp.onrender.com';
+  
+  // Pour developpement local (emulateur Android) :
+  // static const String apiBaseUrl = 'http://10.0.2.2:8080';
 
   // Storage keys
   static const String tokenKey = 'access_token';
