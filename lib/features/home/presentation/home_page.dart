@@ -17,18 +17,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
-
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      DashboardPage(apiClient: widget.apiClient),
+      DashboardPage(apiClient: widget.apiClient, onNavigate: _navigateToTab),
       RecommendationsPage(apiClient: widget.apiClient),
       UniversitiesPage(apiClient: widget.apiClient),
       ProfilePage(apiClient: widget.apiClient, onLogout: widget.onLogout),
     ];
+  }
+
+  void _navigateToTab(int index) {
+    setState(() => _currentIndex = index);
   }
 
   @override
@@ -105,227 +108,226 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// Dashboard avec design professionnel
-class DashboardPage extends StatelessWidget {
+/// Dashboard dynamique avec donnees depuis l'API
+class DashboardPage extends StatefulWidget {
   final ApiClient apiClient;
-  const DashboardPage({super.key, required this.apiClient});
+  final Function(int) onNavigate;
+  const DashboardPage({super.key, required this.apiClient, required this.onNavigate});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  bool _loading = true;
+  String _userName = 'Utilisateur';
+  int _universityCount = 0;
+  int _countryCount = 0;
+  int _recommendationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      // Charger le profil utilisateur
+      final userResponse = await widget.apiClient.getMe();
+      if (mounted) {
+        setState(() {
+          _userName = '${userResponse.data['firstName'] ?? ''} ${userResponse.data['lastName'] ?? ''}'.trim();
+          if (_userName.isEmpty) _userName = 'Utilisateur';
+        });
+      }
+    } catch (e) {
+      // Utiliser les valeurs par defaut
+    }
+
+    try {
+      // Charger les universites
+      final uniResponse = await widget.apiClient.getUniversities(page: 0, size: 1);
+      if (mounted) {
+        setState(() {
+          _universityCount = uniResponse.data['totalElements'] ?? 0;
+        });
+      }
+    } catch (e) {}
+
+    try {
+      // Charger les pays
+      final countriesResponse = await widget.apiClient.getCountries();
+      if (mounted) {
+        setState(() {
+          _countryCount = (countriesResponse.data as List?)?.length ?? 0;
+        });
+      }
+    } catch (e) {}
+
+    try {
+      // Charger les recommandations
+      final recResponse = await widget.apiClient.getRecommendations(page: 0, size: 1);
+      if (mounted) {
+        setState(() {
+          _recommendationCount = recResponse.data['totalElements'] ?? 0;
+        });
+      }
+    } catch (e) {}
+
+    if (mounted) setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header avec logo
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/orientia.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.school_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Orientia',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Text(
-                        'Trouvez votre voie',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.gray100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.notifications_outlined,
-                    color: AppTheme.gray600,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            // Carte hero
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header avec nom utilisateur
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'IA Active',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/orientia.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.school_rounded,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Decouvrez les meilleures\nuniversites pour vous',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Notre IA analyse votre profil et vous recommande les programmes les plus adaptes.',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppTheme.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bonjour, $_userName',
+                          style: Theme.of(context).textTheme.titleLarge,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Obtenir une recommandation',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                          ),
-                        ],
-                      ),
+                        Text(
+                          'Trouvez votre voie',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 28),
+              const SizedBox(height: 28),
 
-            // Statistiques
-            Text(
-              'Statistiques',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: _buildStatCard(Icons.school_rounded, '153', 'Universites', AppTheme.primary)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStatCard(Icons.workspace_premium_rounded, '500+', 'Programmes', AppTheme.success)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStatCard(Icons.public_rounded, '42', 'Pays', AppTheme.warning)),
-              ],
-            ),
-            const SizedBox(height: 28),
+              // Carte hero avec bouton fonctionnel
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'IA Active',
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Decouvrez les meilleures\nuniversites pour vous',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700, height: 1.3),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Notre IA analyse votre profil et vous recommande les programmes les plus adaptes.',
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, height: 1.5),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => widget.onNavigate(1), // Navigue vers l'onglet IA
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.auto_awesome_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Obtenir une recommandation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
 
-            // Actions rapides
-            Text(
-              'Actions rapides',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 14),
-            _buildActionCard(
-              context,
-              Icons.auto_awesome_rounded,
-              'Recommandation IA',
-              'Analyse personnalisee',
-              AppTheme.accent,
-              AppTheme.accentSurface,
-            ),
-            const SizedBox(height: 10),
-            _buildActionCard(
-              context,
-              Icons.search_rounded,
-              'Recherche intelligente',
-              'Posez vos questions',
-              AppTheme.info,
-              AppTheme.infoSurface,
-            ),
-            const SizedBox(height: 10),
-            _buildActionCard(
-              context,
-              Icons.upload_file_rounded,
-              'Uploader releve',
-              'Importez vos notes',
-              AppTheme.success,
-              AppTheme.successSurface,
-            ),
-            const SizedBox(height: 10),
-            _buildActionCard(
-              context,
-              Icons.school_rounded,
-              'Explorer ecoles',
-              'Parcourez les universites',
-              AppTheme.warning,
-              AppTheme.warningSurface,
-            ),
-          ],
+              // Stats dynamiques
+              Text('Statistiques', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard(Icons.school_rounded, _loading ? '...' : '$_universityCount', 'Universites', AppTheme.primary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStatCard(Icons.public_rounded, _loading ? '...' : '$_countryCount', 'Pays', AppTheme.warning)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStatCard(Icons.recommend_rounded, _loading ? '...' : '$_recommendationCount', 'Recommand.', AppTheme.success)),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // Actions rapides fonctionnelles
+              Text('Actions rapides', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 14),
+              _buildActionCard(context, Icons.auto_awesome_rounded, 'Recommandation IA', 'Analyse personnalisee', AppTheme.accent, AppTheme.accentSurface, () => widget.onNavigate(1)),
+              const SizedBox(height: 10),
+              _buildActionCard(context, Icons.school_rounded, 'Explorer ecoles', 'Parcourez les universites', AppTheme.primary, AppTheme.primarySurface, () => widget.onNavigate(2)),
+              const SizedBox(height: 10),
+              _buildActionCard(context, Icons.upload_file_rounded, 'Uploader releve', 'Importez vos notes', AppTheme.success, AppTheme.successSurface, () {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+              }),
+              const SizedBox(height: 10),
+              _buildActionCard(context, Icons.search_rounded, 'Recherche intelligente', 'Posez vos questions', AppTheme.info, AppTheme.infoSurface, () {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+              }),
+            ],
+          ),
         ),
       ),
     );
@@ -344,41 +346,19 @@ class DashboardPage extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.gray900,
-            ),
-          ),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.gray500,
-            ),
-            textAlign: TextAlign.center,
-          ),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppTheme.gray500), textAlign: TextAlign.center),
         ],
       ),
     );
   }
 
-  Widget _buildActionCard(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    Color iconColor,
-    Color bgColor,
-  ) {
+  Widget _buildActionCard(BuildContext context, IconData icon, String title, String subtitle, Color iconColor, Color bgColor, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -392,10 +372,7 @@ class DashboardPage extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 14),
@@ -403,37 +380,12 @@ class DashboardPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.gray900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.gray500,
-                      ),
-                    ),
+                    Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray900)),
+                    Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.gray500)),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.gray100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: AppTheme.gray400,
-                ),
-              ),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.gray300),
             ],
           ),
         ),
