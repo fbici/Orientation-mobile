@@ -133,10 +133,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
                     }),
                     _buildMenuItem(Icons.notifications_outlined, 'Notifications', AppTheme.warning, () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                      _showNotificationsSheet(context);
                     }),
                     _buildMenuItem(Icons.school_outlined, 'Mes candidatures', AppTheme.success, () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                      _showCandidaturesSheet(context);
                     }),
                     _buildMenuItem(Icons.help_outline_rounded, 'Aide et support', AppTheme.accent, () {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
@@ -192,6 +192,123 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
+    );
+  }
+
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        expand: false,
+        builder: (ctx, scrollController) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              Text('Notifications', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 20),
+              _buildNotifItem(Icons.info_outline_rounded, 'Bienvenue !', 'Votre compte a ete cree avec succes.', 'A l\'instant', AppTheme.info),
+              _buildNotifItem(Icons.school_rounded, 'Nouvelles universites', '153 universites disponibles dans la base.', 'Aujourd\'hui', AppTheme.success),
+              _buildNotifItem(Icons.auto_awesome_rounded, 'IA disponible', 'Lancez votre premiere recommandation IA.', 'Aujourd\'hui', AppTheme.accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotifItem(IconData icon, String title, String body, String time, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.gray200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray900)),
+                  const SizedBox(height: 2),
+                  Text(body, style: TextStyle(fontSize: 12, color: AppTheme.gray500, height: 1.4)),
+                ],
+              ),
+            ),
+            Text(time, style: TextStyle(fontSize: 11, color: AppTheme.gray400)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCandidaturesSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 20),
+            Text('Mes candidatures', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.gray100,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.folder_open_rounded, size: 48, color: AppTheme.gray400),
+                  const SizedBox(height: 12),
+                  Text('Aucune candidature', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.gray700)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Vos candidatures apparaitront ici apres avoir obtenu des recommandations.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: AppTheme.gray500, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Fermer'),
+                style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

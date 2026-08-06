@@ -319,13 +319,90 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 10),
               _buildActionCard(context, Icons.school_rounded, 'Explorer ecoles', 'Parcourez les universites', AppTheme.primary, AppTheme.primarySurface, () => widget.onNavigate(2)),
               const SizedBox(height: 10),
-              _buildActionCard(context, Icons.upload_file_rounded, 'Uploader releve', 'Importez vos notes', AppTheme.success, AppTheme.successSurface, () {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+              _buildActionCard(context, Icons.upload_file_rounded, 'Uploader releve', 'Importez vos notes', AppTheme.success, AppTheme.successSurface, () async {
+                // TODO: Implement file upload
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Row(children: [Icon(Icons.info_outline, color: Colors.white, size: 18), SizedBox(width: 10), Text('Fonctionnalite bientot disponible')]),
+                  backgroundColor: AppTheme.info,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ));
               }),
               const SizedBox(height: 10),
               _buildActionCard(context, Icons.search_rounded, 'Recherche intelligente', 'Posez vos questions', AppTheme.info, AppTheme.infoSurface, () {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                _showSmartQuerySheet(context);
               }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSmartQuerySheet(BuildContext context) {
+    final queryController = TextEditingController();
+    String? result;
+    bool loading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              Row(children: [
+                Icon(Icons.auto_awesome_rounded, color: AppTheme.accent),
+                const SizedBox(width: 10),
+                Text('Recherche intelligente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ]),
+              const SizedBox(height: 16),
+              TextField(
+                controller: queryController,
+                decoration: InputDecoration(
+                  hintText: 'Ex: Quelles universites pour la medecine ?',
+                  suffixIcon: IconButton(
+                    icon: loading
+                        ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.send_rounded, color: AppTheme.primary),
+                    onPressed: loading ? null : () async {
+                      if (queryController.text.trim().isEmpty) return;
+                      setSheetState(() => loading = true);
+                      try {
+                        final response = await widget.apiClient.smartQuery(queryController.text.trim());
+                        setSheetState(() {
+                          result = response.data['answer'] ?? response.data['message'] ?? 'Aucun resultat.';
+                          loading = false;
+                        });
+                      } catch (e) {
+                        setSheetState(() {
+                          result = 'Impossible de traiter votre question.';
+                          loading = false;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+              if (result != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+                  ),
+                  child: Text(result!, style: TextStyle(fontSize: 14, color: AppTheme.gray800, height: 1.5)),
+                ),
+              ],
             ],
           ),
         ),
