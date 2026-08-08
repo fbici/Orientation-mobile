@@ -10,6 +10,7 @@ class AppConstants {
   static const String tokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';
   static const String userKey = 'user_data';
+  static const String onboardingDone = 'onboarding_done';
 
   // App
   static const String appName = 'Orientia';
@@ -19,6 +20,6 @@ class AppConstants {
   static const int defaultPageSize = 20;
 
   // Timeouts
-  static const int connectTimeoutMs = 15000;
-  static const int receiveTimeoutMs = 30000;
+  static const int connectTimeoutMs = 30000;
+  static const int receiveTimeoutMs = 60000;
 }
