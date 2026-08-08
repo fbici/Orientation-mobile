@@ -112,7 +112,7 @@ class ApiClient {
   // UNIVERSITIES
   // ═══════════════════════════════════════
   Future<Response> getUniversities({int page = 0, int size = 20, String? search}) async {
-    final params = {'page': page, 'size': size};
+    final params = <String, dynamic>{'page': page, 'size': size};
     if (search != null) params['search'] = search;
     return _dio.get('/universities', queryParameters: params);
   }
@@ -125,7 +125,7 @@ class ApiClient {
   // PROGRAMS
   // ═══════════════════════════════════════
   Future<Response> getPrograms({int page = 0, int size = 20, String? search}) async {
-    final params = {'page': page, 'size': size};
+    final params = <String, dynamic>{'page': page, 'size': size};
     if (search != null) params['search'] = search;
     return _dio.get('/programs', queryParameters: params);
   }
