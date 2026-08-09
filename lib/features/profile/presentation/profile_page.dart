@@ -127,10 +127,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text('Parametres', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 16),
                     _buildMenuItem(Icons.person_outline_rounded, 'Modifier le profil', AppTheme.primary, () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                      _showEditProfileSheet(context);
                     }),
                     _buildMenuItem(Icons.lock_outline_rounded, 'Changer le mot de passe', AppTheme.info, () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                      _showChangePasswordSheet(context);
                     }),
                     _buildMenuItem(Icons.notifications_outlined, 'Notifications', AppTheme.warning, () {
                       _showNotificationsSheet(context);
@@ -139,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       _showCandidaturesSheet(context);
                     }),
                     _buildMenuItem(Icons.help_outline_rounded, 'Aide et support', AppTheme.accent, () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bientot disponible')));
+                      _showHelpSheet(context);
                     }),
                     _buildMenuItem(Icons.info_outline_rounded, 'A propos d\'Orientia', AppTheme.gray500, () {
                       showAboutDialog(
@@ -306,6 +306,192 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditProfileSheet(BuildContext context) {
+    final firstNameController = TextEditingController(text: _firstName);
+    final lastNameController = TextEditingController(text: _lastName);
+    final phoneController = TextEditingController();
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+              SizedBox(height: 20),
+              Text('Modifier le profil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              SizedBox(height: 20),
+              TextField(controller: firstNameController, decoration: InputDecoration(labelText: 'Prenom', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 12),
+              TextField(controller: lastNameController, decoration: InputDecoration(labelText: 'Nom', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 12),
+              TextField(controller: phoneController, decoration: InputDecoration(labelText: 'Telephone', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: saving ? null : () async {
+                    setSheetState(() => saving = true);
+                    try {
+                      await widget.apiClient.updateMe({
+                        'firstName': firstNameController.text.trim(),
+                        'lastName': lastNameController.text.trim(),
+                        'phone': phoneController.text.trim(),
+                      });
+                      Navigator.pop(ctx);
+                      _loadProfile();
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profil mis a jour'), backgroundColor: AppTheme.success));
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de la mise a jour'), backgroundColor: AppTheme.danger));
+                    } finally {
+                      setSheetState(() => saving = false);
+                    }
+                  },
+                  child: saving ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text('Sauvegarder'),
+                  style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordSheet(BuildContext context) {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+              SizedBox(height: 20),
+              Text('Changer le mot de passe', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              SizedBox(height: 20),
+              TextField(controller: oldPasswordController, obscureText: true, decoration: InputDecoration(labelText: 'Mot de passe actuel', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 12),
+              TextField(controller: newPasswordController, obscureText: true, decoration: InputDecoration(labelText: 'Nouveau mot de passe', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 12),
+              TextField(controller: confirmPasswordController, obscureText: true, decoration: InputDecoration(labelText: 'Confirmer le mot de passe', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+              SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: saving ? null : () async {
+                    if (newPasswordController.text != confirmPasswordController.text) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Les mots de passe ne correspondent pas'), backgroundColor: AppTheme.warning));
+                      return;
+                    }
+                    setSheetState(() => saving = true);
+                    try {
+                      await widget.apiClient.changePassword(oldPasswordController.text, newPasswordController.text);
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Mot de passe change'), backgroundColor: AppTheme.success));
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur. Verifiez votre mot de passe actuel.'), backgroundColor: AppTheme.danger));
+                    } finally {
+                      setSheetState(() => saving = false);
+                    }
+                  },
+                  child: saving ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text('Changer le mot de passe'),
+                  style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelpSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
+            SizedBox(height: 20),
+            Text('Aide et support', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            SizedBox(height: 20),
+            _buildHelpItem(Icons.school_rounded, 'Comment fonctionne l\'orientation ?', 'Notre IA analyse votre profil academique et vos preferences pour vous recommander les meilleurs programmes universitaires.'),
+            _buildHelpItem(Icons.upload_file_rounded, 'Comment importer mon bulletin ?', 'Allez dans Documents > Importer un document. Votre bulletin sera analyse automatiquement par OCR.'),
+            _buildHelpItem(Icons.auto_awesome_rounded, 'Comment obtenir des recommandations ?', 'Completez votre profil, importez vos notes, puis cliquez sur "Analyser mes opportunites" dans la section Recommandations.'),
+            _buildHelpItem(Icons.workspace_premium_rounded, 'Comment fonctionnent les bourses ?', 'Les bourses sont filtrees selon votre profil et vos criteres d\'admission.'),
+            SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppTheme.infoSurface, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  Icon(Icons.email_outlined, color: AppTheme.info, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('support@orientia.com', style: TextStyle(color: AppTheme.info, fontWeight: FontWeight.w600))),
+                ],
+              ),
+            ),
+            SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Fermer'),
+                style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHelpItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.gray200)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(icon, size: 18, color: AppTheme.primary),
+              SizedBox(width: 8),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray900))),
+            ]),
+            SizedBox(height: 6),
+            Text(description, style: TextStyle(fontSize: 12, color: AppTheme.gray500, height: 1.4)),
           ],
         ),
       ),
