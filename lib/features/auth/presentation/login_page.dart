@@ -46,19 +46,22 @@ class _LoginPageState extends State<LoginPage> {
       widget.onLoginSuccess();
     } on DioException catch (e) {
       setState(() {
-        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-          final data = e.response?.data;
-          final msg = data is Map ? (data['message'] ?? '') : '';
-          if (msg.contains('EMAIL_NOT_VERIFIED')) {
-            _error = 'Veuillez verifier votre email avant de vous connecter. Consultez votre boite mail.';
-          } else {
-            _error = 'Identifiants incorrects.';
-          }
+        final statusCode = e.response?.statusCode;
+        final data = e.response?.data;
+        final msg = data is Map ? (data['message'] ?? '') : '';
+        
+        if (msg.contains('EMAIL_NOT_VERIFIED') || msg.contains('email')) {
+          _error = 'Veuillez verifier votre email avant de vous connecter. Consultez votre boite mail (spam aussi).';
+        } else if (statusCode == 401) {
+          _error = 'Identifiants incorrects.';
+        } else if (statusCode == 403) {
+          _error = msg.isNotEmpty ? msg : 'Acces refuse.';
         } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
           _error = 'Impossible de joindre le serveur.';
+        } else if (statusCode == 500) {
+          _error = 'Erreur serveur. Reessayez plus tard.';
         } else {
-          final data = e.response?.data;
-          _error = data is Map ? (data['message'] ?? 'Erreur serveur.') : 'Erreur serveur.';
+          _error = msg.isNotEmpty ? msg : 'Une erreur est survenue.';
         }
       });
     } catch (e) {
