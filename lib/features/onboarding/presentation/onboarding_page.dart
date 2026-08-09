@@ -5,7 +5,8 @@ import '../../../core/theme/app_theme.dart';
 class OnboardingPage extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onComplete;
-  const OnboardingPage({super.key, required this.apiClient, required this.onComplete});
+  final VoidCallback? onSkip;
+  const OnboardingPage({super.key, required this.apiClient, required this.onComplete, this.onSkip});
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
@@ -144,44 +145,60 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Navigation buttons
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Row(
+                child: Column(
                   children: [
-                    if (_currentPage > 0)
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _pageController.previousPage(
-                            duration: Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
+                    // Skip button
+                    if (_currentPage < 3 && widget.onSkip != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GestureDetector(
+                          onTap: widget.onSkip,
+                          child: Text(
+                            'Passer pour l\'instant',
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14, fontWeight: FontWeight.w500),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: BorderSide(color: Colors.white.withOpacity(0.2)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: Text('Retour'),
                         ),
                       ),
-                    if (_currentPage > 0) const SizedBox(width: 12),
-                    Expanded(
-                      flex: _currentPage > 0 ? 2 : 1,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _nextPage,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: _loading
-                            ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(_currentPage == 3 ? 'Terminer' : 'Continuer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                  const SizedBox(width: 8),
-                                  Icon(_currentPage == 3 ? Icons.check_rounded : Icons.arrow_forward_rounded, size: 20),
-                                ],
+                    Row(
+                      children: [
+                        if (_currentPage > 0)
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _pageController.previousPage(
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
                               ),
-                      ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              child: Text('Retour'),
+                            ),
+                          ),
+                        if (_currentPage > 0) const SizedBox(width: 12),
+                        Expanded(
+                          flex: _currentPage > 0 ? 2 : 1,
+                          child: ElevatedButton(
+                            onPressed: _loading ? null : _nextPage,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: _loading
+                                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(_currentPage == 3 ? 'Terminer' : 'Continuer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                      const SizedBox(width: 8),
+                                      Icon(_currentPage == 3 ? Icons.check_rounded : Icons.arrow_forward_rounded, size: 20),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

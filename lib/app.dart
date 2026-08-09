@@ -45,16 +45,21 @@ class _OrientiaAppState extends State<OrientiaApp> {
     });
   }
 
-  void _onLoginSuccess() => setState(() {
-    _isLoggedIn = true;
-    _showRegister = false;
-  });
+  void _onLoginSuccess() {
+    setState(() {
+      _isLoggedIn = true;
+      _showRegister = false;
+    });
+  }
 
-  void _onLogout() => setState(() {
-    _isLoggedIn = false;
-    _showRegister = false;
-    _onboardingDone = false;
-  });
+  void _onLogout() async {
+    await _storage.delete(key: AppConstants.onboardingDone);
+    setState(() {
+      _isLoggedIn = false;
+      _showRegister = false;
+      _onboardingDone = false;
+    });
+  }
 
   void _showRegisterPage() => setState(() => _showRegister = true);
   void _showLoginPage() => setState(() => _showRegister = false);
@@ -64,6 +69,10 @@ class _OrientiaAppState extends State<OrientiaApp> {
     setState(() => _onboardingDone = true);
   }
 
+  void _skipOnboarding() {
+    _completeOnboarding();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -71,34 +80,15 @@ class _OrientiaAppState extends State<OrientiaApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: _isLoading
-          ? Scaffold(
-              body: Container(
-                decoration: BoxDecoration(gradient: AppTheme.darkGradient),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
-                        child: Icon(Icons.school_rounded, color: Colors.white, size: 32),
-                      ),
-                      SizedBox(height: 24),
-                      Text('Orientia', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                      SizedBox(height: 8),
-                      Text('Chargement...', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
-                      SizedBox(height: 24),
-                      SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary)),
-                    ],
-                  ),
-                ),
-              ),
-            )
+          ? _buildSplashScreen()
           : _isLoggedIn
               ? _onboardingDone
                   ? HomePage(apiClient: _apiClient, onLogout: _onLogout)
-                  : OnboardingPage(apiClient: _apiClient, onComplete: _completeOnboarding)
+                  : OnboardingPage(
+                      apiClient: _apiClient,
+                      onComplete: _completeOnboarding,
+                      onSkip: _skipOnboarding,
+                    )
               : _showRegister
                   ? RegisterPage(
                       apiClient: _apiClient,
@@ -110,6 +100,37 @@ class _OrientiaAppState extends State<OrientiaApp> {
                       onLoginSuccess: _onLoginSuccess,
                       onRegister: _showRegisterPage,
                     ),
+    );
+  }
+
+  Widget _buildSplashScreen() {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(gradient: AppTheme.darkGradient),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset('assets/images/orientia.png', fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(Icons.school_rounded, color: Colors.white, size: 36)),
+                ),
+              ),
+              SizedBox(height: 24),
+              Text('Orientia', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              SizedBox(height: 8),
+              Text('Trouvez votre voie', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 15)),
+              SizedBox(height: 32),
+              SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
