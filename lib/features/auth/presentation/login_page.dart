@@ -46,10 +46,14 @@ class _LoginPageState extends State<LoginPage> {
       widget.onLoginSuccess();
     } on DioException catch (e) {
       setState(() {
-        if (e.response?.statusCode == 401) {
-          _error = 'Identifiants incorrects.';
-        } else if (e.response?.statusCode == 403) {
-          _error = 'Compte verrouille ou desactive.';
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          final data = e.response?.data;
+          final msg = data is Map ? (data['message'] ?? '') : '';
+          if (msg.contains('EMAIL_NOT_VERIFIED')) {
+            _error = 'Veuillez verifier votre email avant de vous connecter. Consultez votre boite mail.';
+          } else {
+            _error = 'Identifiants incorrects.';
+          }
         } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
           _error = 'Impossible de joindre le serveur.';
         } else {

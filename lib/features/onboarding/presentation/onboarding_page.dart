@@ -61,7 +61,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
     try {
       final response = await widget.apiClient.getCountries();
       if (mounted) setState(() => _countries = response.data ?? []);
-    } catch (e) {}
+    } catch (e) {
+      // Pays de secours si l'API echoue
+      if (mounted && _countries.isEmpty) {
+        setState(() {
+          _countries = [
+            {'id': 'BEN', 'name': 'Benin'},
+            {'id': 'TOG', 'name': 'Togo'},
+            {'id': 'SEN', 'name': 'Senegal'},
+            {'id': 'CIV', 'name': 'Cote d\'Ivoire'},
+            {'id': 'FRA', 'name': 'France'},
+            {'id': 'CAN', 'name': 'Canada'},
+            {'id': 'MAR', 'name': 'Maroc'},
+          ];
+        });
+      }
+    }
   }
 
   Future<void> _loadCities(String countryId) async {
