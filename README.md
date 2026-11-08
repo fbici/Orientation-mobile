@@ -38,16 +38,19 @@ Le lanceur exige les fichiers temporaires de connexion F1 et OCR F2 existants, c
 
 Résultats, contrats et limites : [rapport F3.3](SPRINT_F3_3_FLUTTER_INTEGRATION.md).
 
-## Test Android sur Render
+## Test Android apres le nouveau deploiement Render
 
-Connecter le t?l?phone par USB, activer le d?bogage USB et accepter la cl? RSA. Ex?cuter :
+L'ancien service a ete supprime. Aucune nouvelle URL de production n'est connue ni embarquee dans l'aide Android.
+
+Une fois le nouveau service publie, copier son URL HTTPS reelle (sans `/api/v1`) dans une variable PowerShell, puis connecter le telephone et autoriser le debogage USB :
 
 ```powershell
-dart run tool/android_phone_command.dart
+$env:ORIENTIA_API_URL = Read-Host 'URL HTTPS reelle du nouveau backend Render'
+dart run tool/android_phone_command.dart --api-url $env:ORIENTIA_API_URL
 ```
 
-Le script affiche la commande Flutter pour le t?l?phone physique d?tect? ; il ne lance aucune installation. Il utilise `https://orientation-backend-4lcp.onrender.com` (sans `/api/v1`, car le profil de production expose les routes ? la racine). Les fonctions F1?F3.3 exigent le d?ploiement backend correspondant, soumis ? validation des secrets et migrations.
+L'aide affiche la commande `flutter run` exacte pour le telephone physique detecte ; elle ne lance aucune installation. `API_BASE_URL` et `APP_ENV=development` sont transmis avec `--dart-define`. Le profil backend prod expose les routes a la racine `/`.
 
-Le package courant est `com.orientia.orientia`. Une ancienne installation `com.example.orientation_mobile` ne constitue pas le m?me package ; v?rifier l'identifiant et la signature sur le t?l?phone avant toute installation. Ne pas d?sinstaller automatiquement une application existante.
+Le package courant reste `com.orientia.orientia`. Verifier la signature et le package d'une installation existante sans modifier l'identite ni desinstaller automatiquement l'application.
 
-?tat de synchronisation et r?serves : [rapport GitHub et Android](ORIENTIA_GITHUB_SYNC_ANDROID_TEST.md).
+Rapport precedent (historique, ancienne URL retiree) : [synchronisation Android](ORIENTIA_GITHUB_SYNC_ANDROID_TEST.md). Nouveau rapport : [preparation du redeploiement](ORIENTIA_AUDIT_FINAL_REDEPLOIEMENT_RENDER.md).

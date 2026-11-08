@@ -2,21 +2,40 @@ import 'dart:convert';
 import 'dart:io';
 
 // Read-only helper: prints a command for a detected phone, never installs an app.
-const renderApi = 'https://orientation-backend-4lcp.onrender.com';
-
 Future<void> main(List<String> arguments) async {
   if (arguments.contains('--help')) {
-    stdout.writeln('dart run tool/android_phone_command.dart [--device ID]');
+    stdout.writeln(
+        'dart run tool/android_phone_command.dart --api-url URL_HTTPS [--device ID]');
     stdout.writeln(
         'Détecte le téléphone physique et affiche la commande Flutter.');
     return;
   }
   String? requested;
-  if (arguments.length == 2 && arguments.first == '--device') {
-    requested = arguments.last;
-  } else if (arguments.isNotEmpty) {
+  String? renderApi;
+  for (var i = 0; i < arguments.length; i += 2) {
+    if (i + 1 >= arguments.length ||
+        !['--device', '--api-url'].contains(arguments[i])) {
+      stderr.writeln('Options attendues : --api-url URL_HTTPS [--device ID]');
+      exitCode = 2;
+      return;
+    }
+    if (arguments[i] == '--device') {
+      requested = arguments[i + 1];
+    } else {
+      renderApi = arguments[i + 1];
+    }
+  }
+  final uri = renderApi == null ? null : Uri.tryParse(renderApi);
+  if (uri == null ||
+      uri.scheme != 'https' ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      !['', '/'].contains(uri.path) ||
+      !RegExp(r'^https://[A-Za-z0-9.-]+(?::[0-9]+)?/?$').hasMatch(renderApi!)) {
     stderr.writeln(
-        'Usage : dart run tool/android_phone_command.dart [--device ID]');
+        'Indiquez --api-url avec la véritable URL HTTPS racine du nouveau backend Render. L’ancien service a été supprimé.');
     exitCode = 2;
     return;
   }
