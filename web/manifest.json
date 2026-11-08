@@ -1,6 +1,6 @@
 {
-    "name": "orientation_mobile",
-    "short_name": "orientation_mobile",
+    "name": "orientia",
+    "short_name": "orientia",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

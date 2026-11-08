@@ -1,279 +1,496 @@
 import 'package:flutter/material.dart';
+import '../../../core/data/orientation_repository.dart';
+import '../../../core/models/academic_models.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/academic_widgets.dart';
+import '../../decisions/presentation/decision_page.dart';
+import '../../catalog/presentation/catalog_page.dart';
 
 class ChatPage extends StatefulWidget {
   final ApiClient apiClient;
   const ChatPage({super.key, required this.apiClient});
-
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final _messageController = TextEditingController();
-  final _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _messages = [];
-  bool _loading = false;
-  String? _sessionId;
-
-  final List<String> _suggestions = [
-    'Quelles universites me correspondent ?',
-    'Quelles bourses puis-je obtenir ?',
-    'Puis-je etudier au Maroc ?',
-    'Quels programmes sont accessibles avec ma moyenne ?',
-    'Quelle filiere choisir apres le bac ?',
-  ];
+  late final repo = OrientationRepository(widget.apiClient);
+  final message = TextEditingController(), average = TextEditingController();
+  final scroll = ScrollController();
+  String? session, recommendation;
+  String intent = 'FREE';
+  Set<String> selectedPrograms = {};
+  List<Json> sessions = [], messages = [], programs = [], recommendations = [];
+  int sessionPage = 0, messagePage = 0, generation = 0;
+  bool busy = false, sessionNext = false, messageNext = false;
+  Object? error;
+  @override
+  void initState() {
+    super.initState();
+    loadSessions();
+  }
 
   @override
   void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
+    message.dispose();
+    average.dispose();
+    scroll.dispose();
     super.dispose();
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+  Future<void> loadSessions() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final response = object((await widget.apiClient.call('/ai/chat/sessions',
+              query: {'page': sessionPage, 'size': 20}))
+          .data);
+      if (mounted) {
+        setState(() {
+          sessions = objects(response['content']);
+          sessionNext = response['last'] == false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
     }
   }
 
-  Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
-
+  Future<void> create() async {
     setState(() {
-      _messages.add({'role': 'user', 'content': text.trim()});
-      _loading = true;
+      busy = true;
+      error = null;
     });
-    _messageController.clear();
-    _scrollToBottom();
-
     try {
-      // Utiliser smart query
-      final response = await widget.apiClient.smartQuery(text.trim());
-      final answer = response.data['answer'] ?? response.data['message'] ?? 'Je n\'ai pas trouve de reponse precise.';
-      
+      final data = object((await widget.apiClient.createChatSession()).data);
       if (mounted) {
         setState(() {
-          _messages.add({'role': 'assistant', 'content': answer});
-          _loading = false;
+          session = data['sessionId'] as String;
+          messages = [];
+          messagePage = 0;
+          generation++;
         });
-        _scrollToBottom();
+        await loadMessages();
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> loadMessages() async {
+    final id = session, request = ++generation;
+    if (id == null) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final data = object((await widget.apiClient.call(
+              '/ai/chat/sessions/$id/messages',
+              query: {'page': messagePage, 'size': 20}))
+          .data);
+      if (mounted && request == generation) {
         setState(() {
-          _messages.add({'role': 'assistant', 'content': 'Impossible de traiter votre question. Verifiez votre connexion.'});
-          _loading = false;
+          messages =
+              objects(data['content']).map((j) => object(j['result'])).toList();
+          messageNext = data['last'] == false;
         });
       }
+    } catch (e) {
+      if (mounted && request == generation) setState(() => error = e);
+    } finally {
+      if (mounted && request == generation) setState(() => busy = false);
+    }
+  }
+
+  Future<void> parameters() async {
+    try {
+      final p = await repo.catalog('programs');
+      final r = await repo.recommendations();
+      if (mounted) {
+        setState(() {
+          programs = [for (final item in p.content) item.fields];
+          recommendations = [
+            for (final item in r.content) {'id': item.id, 'name': item.name}
+          ];
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    }
+  }
+
+  Future<void> send() async {
+    if (session == null || message.text.trim().isEmpty) return;
+    final id = session, request = ++generation;
+    final question = message.text.trim();
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final params = <String, dynamic>{
+        if (selectedPrograms.isNotEmpty)
+          'programIds': selectedPrograms.toList(),
+        if (recommendation != null) 'recommendationId': recommendation,
+      };
+      if (intent == 'SIMULATION') {
+        final n = double.tryParse(average.text.trim().replaceAll(',', '.'));
+        if (n == null || !n.isFinite) {
+          throw const FormatException('Moyenne explicite requise');
+        }
+        params['simulation'] = {'modifiedGeneralAverage': n};
+      }
+      final response = object((await widget.apiClient
+              .sendChatMessage(id!, question, parameters: params))
+          .data);
+      if (mounted && request == generation && id == session) {
+        setState(() {
+          messages = [...messages, response];
+          message.clear();
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (scroll.hasClients) {
+            scroll.animateTo(scroll.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted && request == generation) setState(() => error = e);
+    } finally {
+      if (mounted && request == generation) setState(() => busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(8)),
-              child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-            ),
-            SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Assistant Orientia', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                Text('Intelligence artificielle', style: TextStyle(fontSize: 11, color: AppTheme.gray500)),
-              ],
-            ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          // Messages
-          Expanded(
-            child: _messages.isEmpty
-                ? _buildWelcomeScreen()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: EdgeInsets.all(16),
-                    itemCount: _messages.length + (_loading ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _messages.length) return _buildTypingIndicator();
-                      return _buildMessageBubble(_messages[index]);
-                    },
-                  ),
-          ),
-          // Input
-          Container(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: Offset(0, -5))],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    onSubmitted: _sendMessage,
-                    decoration: InputDecoration(
-                      hintText: 'Posez votre question...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: AppTheme.gray200)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(22)),
-                  child: IconButton(
-                    icon: Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                    onPressed: () => _sendMessage(_messageController.text),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Assistant Orientia'), actions: [
+        IconButton(
+            onPressed: busy ? null : create,
+            icon: const Icon(Icons.add_comment_outlined),
+            tooltip: 'Nouvelle conversation')
+      ]),
+      body: Column(children: [
+        const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Notice(
+                'Assistant déterministe : recommandations et sources du backend, sans promesse d’admission.')),
+        ExpansionTile(
+            title: const Text('Reprendre une conversation'),
+            children: [
+              for (final s in sessions)
+                ListTile(
+                    title: Text('Conversation du ${text(s['computedAt'])}'),
+                    onTap: busy
+                        ? null
+                        : () {
+                            setState(() {
+                              session = s['id'] as String;
+                              messagePage = 0;
+                              messages = [];
+                            });
+                            loadMessages();
+                          }),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                TextButton(
+                    onPressed: sessionPage > 0 && !busy
+                        ? () {
+                            sessionPage--;
+                            loadSessions();
+                          }
+                        : null,
+                    child: const Text('Précédent')),
+                TextButton(
+                    onPressed: sessionNext && !busy
+                        ? () {
+                            sessionPage++;
+                            loadSessions();
+                          }
+                        : null,
+                    child: const Text('Suivant'))
+              ]),
+            ]),
+        if (busy) const LinearProgressIndicator(),
+        if (error != null) ErrorNotice(error!),
+        Expanded(
+            child: ListView(
+                controller: scroll,
+                padding: const EdgeInsets.all(12),
+                children: [
+              if (session == null)
+                Center(
+                    child: FilledButton.icon(
+                        onPressed: busy ? null : create,
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: const Text('Commencer une conversation'))),
+              for (final m in messages)
+                Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                          alignment: Alignment.centerRight,
+                          child: Card(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
+                              child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(text(m['question']))))),
+                      Card(
+                          child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                        switch (m['status']) {
+                                          'ANSWERED' =>
+                                            'Réponse fondée sur les données disponibles',
+                                          'NEEDS_INPUT' =>
+                                            'Paramètres nécessaires',
+                                          'INSUFFICIENT_DATA' =>
+                                            'Données insuffisantes',
+                                          'HISTORICAL' => 'Résultat historique',
+                                          'UNSUPPORTED' =>
+                                            'Demande non prise en charge',
+                                          _ => 'État inconnu'
+                                        },
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                    SelectableText(text(m['content'])),
+                                    ...structured(m['data']),
+                                    SourceDetails(objects(m['sources'])),
+                                  ]))),
+                    ]),
+              if (session != null)
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                          onPressed: messagePage > 0 && !busy
+                              ? () {
+                                  messagePage--;
+                                  loadMessages();
+                                }
+                              : null,
+                          child: const Text('Messages précédents')),
+                      TextButton(
+                          onPressed: messageNext && !busy
+                              ? () {
+                                  messagePage++;
+                                  loadMessages();
+                                }
+                              : null,
+                          child: const Text('Messages suivants'))
+                    ]),
+            ])),
+        if (session != null)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    ExpansionTile(
+                        title: const Text(
+                            'Aider l’assistant : paramètres explicites'),
+                        onExpansionChanged: (open) {
+                          if (open && programs.isEmpty) parameters();
+                        },
+                        children: [
+                          DropdownButtonFormField<String>(
+                              initialValue: intent,
+                              decoration: const InputDecoration(
+                                  labelText: 'Type de demande'),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 'FREE',
+                                    child: Text('Question libre')),
+                                DropdownMenuItem(
+                                    value: 'COMPARISON',
+                                    child: Text('Comparer des formations')),
+                                DropdownMenuItem(
+                                    value: 'SIMULATION',
+                                    child: Text('Simuler une moyenne')),
+                                DropdownMenuItem(
+                                    value: 'EXPLANATION',
+                                    child:
+                                        Text('Expliquer une recommandation')),
+                                DropdownMenuItem(
+                                    value: 'SCHOLARSHIPS',
+                                    child: Text('Évaluer les bourses')),
+                              ],
+                              onChanged: (v) {
+                                setState(() {
+                                  intent = v!;
+                                  message.text = switch (intent) {
+                                    'COMPARISON' => 'Comparer ces formations',
+                                    'SIMULATION' => 'Simuler ma moyenne',
+                                    'EXPLANATION' =>
+                                      'Pourquoi cette recommandation ?',
+                                    'SCHOLARSHIPS' =>
+                                      'Quelles bourses pour mon profil ?',
+                                    _ => ''
+                                  };
+                                });
+                              }),
+                          if (intent == 'SIMULATION')
+                            TextField(
+                                controller: average,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                decoration: const InputDecoration(
+                                    labelText:
+                                        'Moyenne hypothétique dans votre barème confirmé')),
+                          if (intent == 'EXPLANATION')
+                            referenceSelect(
+                                label: 'Recommandation',
+                                items: recommendations,
+                                value: recommendation,
+                                onChanged: (v) =>
+                                    setState(() => recommendation = v)),
+                          if (['COMPARISON', 'SCHOLARSHIPS'].contains(intent))
+                            ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxHeight: 200),
+                                child: ListView(shrinkWrap: true, children: [
+                                  for (final p in programs)
+                                    CheckboxListTile(
+                                        title: Text(text(p['name'])),
+                                        value:
+                                            selectedPrograms.contains(p['id']),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            if (v == true &&
+                                                selectedPrograms.length < 6) {
+                                              selectedPrograms
+                                                  .add(p['id'] as String);
+                                            }
+                                            if (v == false) {
+                                              selectedPrograms.remove(p['id']);
+                                            }
+                                          });
+                                        }),
+                                ])),
+                          if (['COMPARISON', 'SCHOLARSHIPS'].contains(intent))
+                            TextButton(
+                                onPressed: () async {
+                                  try {
+                                    final next = await repo.catalog('programs',
+                                        page: programs.length ~/ 20);
+                                    if (mounted) {
+                                      setState(() => programs = [
+                                            ...programs,
+                                            ...next.content.map((p) => p.fields)
+                                          ]);
+                                    }
+                                  } catch (e) {
+                                    if (mounted) setState(() => error = e);
+                                  }
+                                },
+                                child:
+                                    const Text('Charger d’autres formations')),
+                        ]),
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Expanded(
+                          child: TextField(
+                              controller: message,
+                              minLines: 1,
+                              maxLines: 3,
+                              maxLength: 2000,
+                              decoration: const InputDecoration(
+                                  labelText: 'Votre question'))),
+                      IconButton(
+                          onPressed: busy ? null : send,
+                          icon: const Icon(Icons.send),
+                          tooltip: 'Envoyer la question')
+                    ]),
+                  ]))),
+      ]));
+  List<Widget> structured(Object? data) {
+    if (data is List) return [for (final row in objects(data)) _card(row)];
+    if (data is Map) {
+      final value = object(data);
+      final payload = value['result'] is Map ? object(value['result']) : value;
+      if (payload['programs'] is List ||
+          payload['scholarships'] is List ||
+          payload['after'] is List) {
+        return [DecisionContent(payload, apiClient: widget.apiClient)];
+      }
+      if (payload['explanation'] is Map) {
+        return [
+          _card({
+            ...object(payload['explanation']),
+            'programId': payload['programId'],
+            'score': payload['score'],
+            'eligibilityStatus': payload['eligibilityStatus']
+          })
+        ];
+      }
+    }
+    return [];
   }
 
-  Widget _buildWelcomeScreen() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        children: [
-          SizedBox(height: 40),
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
-            child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 32),
-          ),
-          SizedBox(height: 20),
-          Text('Comment puis-je vous aider ?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.gray900)),
-          SizedBox(height: 8),
-          Text('Posez vos questions sur l\'orientation universitaire.', style: TextStyle(fontSize: 14, color: AppTheme.gray500)),
-          SizedBox(height: 32),
-          ..._suggestions.map((s) => _buildSuggestionChip(s)).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestionChip(String text) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _sendMessage(text),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.gray200),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppTheme.primary),
-                SizedBox(width: 12),
-                Expanded(child: Text(text, style: TextStyle(fontSize: 14, color: AppTheme.gray800))),
-                Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppTheme.gray300),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(Map<String, dynamic> message) {
-    final isUser = message['role'] == 'user';
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(8)),
-              child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14),
-            ),
-            SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isUser ? AppTheme.primary : AppTheme.gray100,
-                borderRadius: BorderRadius.circular(16).copyWith(
-                  topLeft: isUser ? Radius.circular(16) : Radius.circular(4),
-                  topRight: isUser ? Radius.circular(4) : Radius.circular(16),
-                ),
-              ),
-              child: Text(
-                message['content'] ?? '',
-                style: TextStyle(
-                  color: isUser ? Colors.white : AppTheme.gray800,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypingIndicator() {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(8)),
-            child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14),
-          ),
-          SizedBox(width: 8),
-          Container(
-            padding: EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppTheme.gray100, borderRadius: BorderRadius.circular(16)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gray400)),
-                SizedBox(width: 8),
-                Text('En reflexion...', style: TextStyle(color: AppTheme.gray500, fontSize: 13)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _card(Json row) {
+    if (row['entityId'] is String && row['entityType'] is String) {
+      final resource = const {
+        'UNIVERSITY': 'universities',
+        'CAMPUS': 'campuses',
+        'FACULTY': 'faculties',
+        'PROGRAM': 'programs',
+        'SCHOLARSHIP': 'scholarships'
+      }[row['entityType']];
+      return Card(
+          child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(text(row['name']),
+                        style: Theme.of(context).textTheme.titleMedium),
+                    SelectableText(text(row['content'])),
+                    SourceDetails(objects(row['sources'])),
+                    if (resource != null)
+                      TextButton(
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                  builder: (_) => CatalogDetailPage(
+                                      apiClient: widget.apiClient,
+                                      resource: resource,
+                                      id: row['entityId'] as String))),
+                          child: const Text('Consulter la fiche')),
+                  ])));
+    }
+    return ResultCard(row,
+        actions: row['programId'] is String
+            ? TextButton(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                        builder: (_) => CatalogDetailPage(
+                            apiClient: widget.apiClient,
+                            resource: 'programs',
+                            id: row['programId'] as String))),
+                child: const Text('Consulter la formation'))
+            : row['scholarshipId'] is String
+                ? TextButton(
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) => CatalogDetailPage(
+                                apiClient: widget.apiClient,
+                                resource: 'scholarships',
+                                id: row['scholarshipId'] as String))),
+                    child: const Text('Consulter la bourse'))
+                : null);
   }
 }

@@ -1,322 +1,556 @@
-import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/data/orientation_repository.dart';
+import '../../../core/models/academic_models.dart';
+import '../../../core/widgets/academic_widgets.dart';
+import '../../profile/presentation/academic_profile_page.dart';
 
 class DocumentsPage extends StatefulWidget {
   final ApiClient apiClient;
   const DocumentsPage({super.key, required this.apiClient});
-
   @override
   State<DocumentsPage> createState() => _DocumentsPageState();
 }
 
 class _DocumentsPageState extends State<DocumentsPage> {
-  List<dynamic> _documents = [];
-  bool _loading = true;
-  bool _uploading = false;
-  String? _error;
-
+  late final repo = OrientationRepository(widget.apiClient);
+  PageData<Json>? transcripts;
+  List<Json> years = [];
+  String? year;
+  int page = 0;
+  bool loading = true, uploading = false;
+  Object? error;
+  double? progress;
   @override
   void initState() {
     super.initState();
-    _loadDocuments();
+    load();
   }
 
-  Future<void> _loadDocuments() async {
-    setState(() { _loading = true; _error = null; });
+  Future<void> load() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
     try {
-      final response = await widget.apiClient.getDocuments();
-      if (mounted) setState(() { _documents = response.data['content'] ?? []; _loading = false; });
+      final refs = await repo.references('academic-years');
+      final list = await repo.transcripts(page: page);
+      if (mounted) {
+        setState(() {
+          years = refs;
+          transcripts = list;
+          loading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() { _error = 'Impossible de charger les documents.'; _loading = false; });
+      if (mounted) {
+        setState(() {
+          error = e;
+          loading = false;
+        });
+      }
     }
   }
 
-  Future<void> _pickAndUpload() async {
+  Future<void> upload() async {
+    if (year == null) {
+      setState(() => error = const FormatException('Choisir une année'));
+      return;
+    }
+    setState(() {
+      uploading = true;
+      error = null;
+      progress = null;
+    });
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      );
-      if (result == null || result.files.isEmpty) return;
-
-      final file = result.files.first;
-      setState(() => _uploading = true);
-
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+      final picked = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+          withData: true);
+      if (picked == null || !mounted) return;
+      final file = picked.files.single;
+      final bytes = file.bytes;
+      if (bytes == null || file.size > 10 * 1024 * 1024) {
+        throw const FormatException('Fichier trop volumineux');
+      }
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+                  title: const Text('Vérifier le document'),
+                  content: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('${file.name} • ${file.size} octets'),
+                    if (['png', 'jpg', 'jpeg']
+                        .contains(file.extension?.toLowerCase()))
+                      Image.memory(bytes, height: 240, fit: BoxFit.contain),
+                    const Text(
+                        'Le document est envoyé au backend pour une analyse privée. Les valeurs inconnues resteront à vérifier.'),
+                  ])),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('Annuler')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(c, true),
+                        child: const Text('Envoyer'))
+                  ]));
+      if (confirmed != true || !mounted) return;
+      await repo.upload(
+          Uint8List.fromList(bytes), file.extension!.toLowerCase(), year!,
+          progress: (sent, total) {
+        if (mounted) setState(() => progress = total > 0 ? sent / total : null);
       });
-
-      await widget.apiClient.uploadDocument(formData);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Document envoye avec succes'), backgroundColor: AppTheme.success),
-        );
-        _loadDocuments();
-      }
+      await load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'envoi'), backgroundColor: AppTheme.danger),
-        );
-      }
+      if (mounted) setState(() => error = e);
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      try {
+        await FilePicker.platform.clearTemporaryFiles();
+      } catch (_) {}
+      PaintingBinding.instance.imageCache.clear();
+      if (mounted) setState(() => uploading = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Mes documents'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator(color: AppTheme.primary))
-          : RefreshIndicator(
-              onRefresh: _loadDocuments,
-              child: SingleChildScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Upload card
-                    GestureDetector(
-                      onTap: _uploading ? null : _pickAndUpload,
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            _uploading
-                                ? CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                : Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 40),
-                            SizedBox(height: 12),
-                            Text(
-                              _uploading ? 'Envoi en cours...' : 'Importer un document',
-                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Bulletin, releve de notes, diplome (PDF, JPG, PNG)',
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    
-                    // Pipeline info
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.infoSurface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.info.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Icon(Icons.auto_awesome_rounded, color: AppTheme.info, size: 18),
-                            SizedBox(width: 8),
-                            Text('Analyse intelligente', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.gray900)),
-                          ]),
-                          SizedBox(height: 8),
-                          Text(
-                            'Vos documents sont analyses automatiquement : OCR, extraction des notes, detection des matieres, construction du profil academique.',
-                            style: TextStyle(fontSize: 12, color: AppTheme.gray600, height: 1.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    
-                    // Documents list
-                    Text('${_documents.length} documents', style: Theme.of(context).textTheme.titleMedium),
-                    SizedBox(height: 12),
-                    
-                    if (_documents.isEmpty)
-                      _buildEmptyState()
-                    else
-                      ..._documents.map((doc) => _buildDocumentCard(doc)).toList(),
-                  ],
-                ),
-              ),
-            ),
-    );
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Mes relevés')),
+      body: Column(children: [
+        Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              referenceSelect(
+                  label: 'Année des résultats du document',
+                  items: years,
+                  value: year,
+                  nameField: 'label',
+                  onChanged:
+                      uploading ? (_) {} : (v) => setState(() => year = v)),
+              FilledButton.icon(
+                  onPressed: uploading ? null : upload,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Ajouter un PDF ou une image')),
+              if (uploading) LinearProgressIndicator(value: progress),
+              if (error != null) ErrorNotice(error!, onRetry: load),
+            ])),
+        if (loading) const LinearProgressIndicator(),
+        Expanded(
+            child: RefreshIndicator(
+                onRefresh: load,
+                child: ListView(children: [
+                  for (final t in transcripts?.content ?? <Json>[])
+                    Card(
+                        child: ListTile(
+                            title:
+                                Text(text(t['originalFileName'] ?? t['title'])),
+                            subtitle: Text(
+                                'Année : ${text(t['academicYearId'])} • ${text(t['status'])}'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                    builder: (_) => TranscriptPage(
+                                        apiClient: widget.apiClient,
+                                        transcript: t))))),
+                  if (!loading && transcripts?.content.isEmpty == true)
+                    const ListTile(
+                        title: Text(
+                            'Aucun relevé. Ajoutez votre premier document.')),
+                ]))),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          TextButton(
+              onPressed: page > 0 && !loading
+                  ? () {
+                      page--;
+                      load();
+                    }
+                  : null,
+              child: const Text('Précédent')),
+          TextButton(
+              onPressed: transcripts?.hasNext == true && !loading
+                  ? () {
+                      page++;
+                      load();
+                    }
+                  : null,
+              child: const Text('Suivant'))
+        ]),
+      ]));
+}
+
+class TranscriptPage extends StatefulWidget {
+  final ApiClient apiClient;
+  final Json transcript;
+  const TranscriptPage(
+      {super.key, required this.apiClient, required this.transcript});
+  @override
+  State<TranscriptPage> createState() => _TranscriptPageState();
+}
+
+class _TranscriptPageState extends State<TranscriptPage> {
+  late final repo = OrientationRepository(widget.apiClient);
+  List<Json> scales = [];
+  PageData<TranscriptAnalysis>? history;
+  final period = TextEditingController();
+  String? scale;
+  int page = 0;
+  bool busy = true;
+  Object? error;
+  @override
+  void initState() {
+    super.initState();
+    load();
   }
 
-  Widget _buildDocumentCard(dynamic doc) {
-    final name = doc['fileName'] ?? doc['name'] ?? 'Document';
-    final status = doc['status'] ?? 'UPLOADED';
-    final type = doc['documentType'] ?? doc['type'] ?? 'Document';
-    final date = doc['createdAt'] ?? '';
-    
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
-    
-    switch (status) {
-      case 'ANALYZED':
-      case 'COMPLETED':
-        statusColor = AppTheme.success;
-        statusText = 'Analyse terminee';
-        statusIcon = Icons.check_circle_rounded;
-        break;
-      case 'PROCESSING':
-      case 'ANALYZING':
-        statusColor = AppTheme.info;
-        statusText = 'Analyse en cours...';
-        statusIcon = Icons.hourglass_top_rounded;
-        break;
-      case 'ERROR':
-        statusColor = AppTheme.danger;
-        statusText = 'Erreur d\'analyse';
-        statusIcon = Icons.error_rounded;
-        break;
-      default:
-        statusColor = AppTheme.warning;
-        statusText = 'En attente';
-        statusIcon = Icons.schedule_rounded;
+  @override
+  void dispose() {
+    period.dispose();
+    super.dispose();
+  }
+
+  Future<void> load() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final refs = await repo.references('grade-scales');
+      final h =
+          await repo.analyses(widget.transcript['id'] as String, page: page);
+      if (mounted) {
+        setState(() {
+          scales = refs
+              .where((s) =>
+                  s['academicYearId'] == widget.transcript['academicYearId'])
+              .toList();
+          history = h;
+          busy = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = e;
+          busy = false;
+        });
+      }
     }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showDocumentDetail(doc),
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.gray200),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.description_rounded, color: statusColor, size: 22),
-                ),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray900)),
-                      SizedBox(height: 4),
-                      Row(children: [
-                        Icon(statusIcon, size: 14, color: statusColor),
-                        SizedBox(width: 4),
-                        Text(statusText, style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.w500)),
-                      ]),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.gray300),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
-  void _showDocumentDetail(dynamic doc) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, scrollController) => Padding(
-          padding: EdgeInsets.all(24),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.gray300, borderRadius: BorderRadius.circular(2)))),
-              SizedBox(height: 20),
-              Text(doc['fileName'] ?? 'Document', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-              SizedBox(height: 16),
-              _buildDetailRow('Type', doc['documentType'] ?? 'Document'),
-              _buildDetailRow('Statut', doc['status'] ?? 'Inconnu'),
-              _buildDetailRow('Date', doc['createdAt'] ?? ''),
-              if (doc['extractedText'] != null) ...[
-                SizedBox(height: 16),
-                Text('Texte extrait', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                SizedBox(height: 8),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppTheme.gray100, borderRadius: BorderRadius.circular(8)),
-                  child: Text(doc['extractedText'], style: TextStyle(fontSize: 13, color: AppTheme.gray700, height: 1.5)),
-                ),
-              ],
-              SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Fermer'),
-                  style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> analyze() async {
+    if (scale == null || period.text.trim().isEmpty) {
+      setState(() => error = const FormatException('Barème et période requis'));
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final a = await repo.analyze(
+          widget.transcript['id'] as String, scale!, period.text.trim());
+      if (!mounted) return;
+      await open(a);
+      await load();
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.gray500))),
-          Expanded(child: Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray800))),
+  Future<void> open(TranscriptAnalysis a) async {
+    await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+            builder: (_) => AnalysisPage(
+                apiClient: widget.apiClient,
+                analysis: a,
+                transcript: widget.transcript)));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Analyse et versions')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Text(text(widget.transcript['originalFileName'])),
+        referenceSelect(
+            label: 'Barème explicite de cette année',
+            items: scales,
+            value: scale,
+            onChanged: (v) => setState(() => scale = v)),
+        TextField(
+            controller: period,
+            decoration: const InputDecoration(
+                labelText:
+                    'Période scolaire — par exemple Année ou Trimestre 1')),
+        FilledButton(
+            onPressed: busy ? null : analyze,
+            child: const Text('Lancer une analyse OCR')),
+        if (busy) ...[
+          const LinearProgressIndicator(),
+          const Text(
+              'Traitement en cours. En cas d’interruption, consultez les versions avant de relancer.')
         ],
-      ),
-    );
+        if (error != null) ErrorNotice(error!, onRetry: load),
+        for (final a in history?.content ?? <TranscriptAnalysis>[])
+          Card(
+              child: ListTile(
+                  title: Text(a.confirmed
+                      ? 'Analyse confirmée personnellement'
+                      : a.status),
+                  subtitle: Text('Version : ${a.id}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => open(a))),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          TextButton(
+              onPressed: page > 0 && !busy
+                  ? () {
+                      page--;
+                      load();
+                    }
+                  : null,
+              child: const Text('Précédent')),
+          TextButton(
+              onPressed: history?.hasNext == true && !busy
+                  ? () {
+                      page++;
+                      load();
+                    }
+                  : null,
+              child: const Text('Suivant'))
+        ]),
+      ]));
+}
+
+class AnalysisPage extends StatefulWidget {
+  final ApiClient apiClient;
+  final TranscriptAnalysis analysis;
+  final Json transcript;
+  const AnalysisPage(
+      {super.key,
+      required this.apiClient,
+      required this.analysis,
+      required this.transcript});
+  @override
+  State<AnalysisPage> createState() => _AnalysisPageState();
+}
+
+class _AnalysisPageState extends State<AnalysisPage> {
+  late final repo = OrientationRepository(widget.apiClient);
+  late TranscriptAnalysis analysis = widget.analysis;
+  late final average =
+      TextEditingController(text: analysis.review['average']?.toString() ?? '');
+  late final markData = objects(analysis.review['marks']);
+  late final values = [
+    for (final m in markData)
+      TextEditingController(text: m['value']?.toString() ?? '')
+  ];
+  late final coefficients = [
+    for (final m in markData)
+      TextEditingController(text: m['coefficient']?.toString() ?? '')
+  ];
+  List<Json> subjects = [];
+  bool consent = false, busy = false, dirty = false;
+  Object? error;
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in [average, ...values, ...coefficients]) {
+      controller.addListener(() {
+        if (mounted) {
+          setState(() {
+            dirty = true;
+            consent = false;
+          });
+        }
+      });
+    }
+    loadSubjects();
   }
 
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(32),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.gray200)),
-      child: Column(
-        children: [
-          Icon(Icons.folder_open_rounded, size: 48, color: AppTheme.gray400),
-          SizedBox(height: 12),
-          Text('Aucun document', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.gray700)),
-          SizedBox(height: 8),
-          Text('Importez votre premier bulletin ou releve de notes pour commencer l\'analyse.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppTheme.gray500, height: 1.5)),
-        ],
-      ),
-    );
+  Future<void> loadSubjects() async {
+    try {
+      final all = await repo.references('subjects');
+      if (mounted) {
+        setState(() => subjects = all
+            .where((s) => s['gradeScaleId'] == analysis.review['gradeScaleId'])
+            .toList());
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    }
   }
+
+  @override
+  void dispose() {
+    average.dispose();
+    for (final c in [...values, ...coefficients]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  double? parse(TextEditingController c) {
+    if (c.text.trim().isEmpty) return null;
+    final n = double.tryParse(c.text.trim().replaceAll(',', '.'));
+    if (n == null || !n.isFinite) throw const FormatException('Note invalide');
+    return n;
+  }
+
+  Future<void> action(String operation) async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      if (operation == 'save') {
+        final review = {
+          ...analysis.review,
+          'average': parse(average),
+          'marks': [
+            for (int i = 0; i < markData.length; i++)
+              {
+                ...markData[i],
+                'value': parse(values[i]),
+                'coefficient': parse(coefficients[i])
+              }
+          ]
+        };
+        final next = await repo.correct(analysis, review);
+        if (mounted) {
+          setState(() {
+            analysis = next;
+            consent = false;
+            dirty = false;
+          });
+        }
+      } else if (operation == 'confirm') {
+        final next = await repo.confirm(analysis);
+        if (mounted) setState(() => analysis = next);
+      } else {
+        final p = await repo.profile();
+        final scales = await repo.references('grade-scales');
+        final source = scales
+            .singleWhere((s) => s['id'] == analysis.review['gradeScaleId']);
+        if (!mounted) return;
+        final yes = await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
+                    title: const Text('Utiliser cette analyse ?'),
+                    content: const Text(
+                        'Le profil utilisera le pays, le barème et l’année de ce relevé. Il sera enregistré comme brouillon pour vous permettre de le vérifier et le confirmer.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(c, false),
+                          child: const Text('Annuler')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(c, true),
+                          child: const Text('Utiliser'))
+                    ]));
+        if (yes != true) return;
+        await repo.saveProfile(p.request({
+          'transcriptAnalysisId': analysis.id,
+          'gradeScaleId': analysis.review['gradeScaleId'],
+          'gradesAcademicYearId': widget.transcript['academicYearId'],
+          'countryId': source['countryId'],
+          'generalAverage': null,
+          'subjectGrades': <String, double>{},
+          'confirmed': false
+        }));
+        if (mounted) {
+          await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                  builder: (_) =>
+                      AcademicProfilePage(apiClient: widget.apiClient)));
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Vérifier les notes extraites')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Notice(
+            analysis.confirmed
+                ? 'Confirmation personnelle enregistrée, sans certification officielle.'
+                : 'Les valeurs inconnues restent vides. Vérifiez la source avant toute confirmation.',
+            warning: !analysis.confirmed),
+        if (analysis.review.isEmpty)
+          const Notice(
+              'Aucun résultat exploitable. Consultez l’état du document et relancez une analyse si nécessaire.',
+              warning: true),
+        TextField(
+            controller: average,
+            readOnly: analysis.confirmed,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+                labelText: 'Moyenne extraite — inconnue si vide')),
+        for (int i = 0; i < markData.length; i++)
+          Card(
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(children: [
+                    Text(text(markData[i]['rawSubject']),
+                        style: Theme.of(context).textTheme.titleMedium),
+                    referenceSelect(
+                        label: 'Matière configurée',
+                        items: subjects,
+                        value: markData[i]['subjectId'] as String?,
+                        onChanged: analysis.confirmed
+                            ? null
+                            : (v) {
+                                setState(() {
+                                  markData[i]['subjectId'] = v;
+                                  dirty = true;
+                                  consent = false;
+                                });
+                              }),
+                    TextField(
+                        controller: values[i],
+                        readOnly: analysis.confirmed,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'Note — vide si inconnue')),
+                    TextField(
+                        controller: coefficients[i],
+                        readOnly: analysis.confirmed,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'Coefficient — facultatif')),
+                    Text('Page ${text(markData[i]['page'])}'),
+                    SelectableText(text(markData[i]['passage'])),
+                  ]))),
+        if (!analysis.confirmed) ...[
+          FilledButton(
+              onPressed:
+                  busy || analysis.review.isEmpty ? null : () => action('save'),
+              child: const Text('Enregistrer une nouvelle correction')),
+          CheckboxListTile(
+              value: consent,
+              onChanged: (v) => setState(() => consent = v ?? false),
+              title: const Text(
+                  'J’ai vérifié cette version. Les modifications doivent être enregistrées avant confirmation.')),
+          OutlinedButton(
+              onPressed: busy || !consent || dirty || analysis.review.isEmpty
+                  ? null
+                  : () => action('confirm'),
+              child: const Text('Confirmer la version enregistrée')),
+        ] else
+          FilledButton(
+              onPressed: busy ? null : () => action('select'),
+              child: const Text('Sélectionner cette analyse dans mon profil')),
+        if (busy) const LinearProgressIndicator(),
+        if (error != null) ErrorNotice(error!),
+      ]));
 }

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "orientation_mobile" "\0"
+            VALUE "CompanyName", "com.orientia" "\0"
+            VALUE "FileDescription", "orientia" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "orientation_mobile" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "orientation_mobile.exe" "\0"
-            VALUE "ProductName", "orientation_mobile" "\0"
+            VALUE "InternalName", "orientia" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.orientia. All rights reserved." "\0"
+            VALUE "OriginalFilename", "orientia.exe" "\0"
+            VALUE "ProductName", "orientia" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
