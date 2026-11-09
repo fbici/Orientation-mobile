@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'api_endpoints.dart' as endpoints;
 
 class AppConstants {
-  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8080/api/v1');
   static const environment =
       String.fromEnvironment('APP_ENV', defaultValue: 'development');
+  static const productionApiBaseUrl = endpoints.productionApiBaseUrl;
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
+      defaultValue: environment == 'production'
+          ? endpoints.productionApiBaseUrl
+          : endpoints.localApiBaseUrl);
   static const tokenKey = 'access_token',
       refreshTokenKey = 'refresh_token',
       userKey = 'user_data',
@@ -26,6 +30,11 @@ class AppConstants {
     }
     if ((release || env == 'production') && uri.scheme != 'https') {
       throw ArgumentError('HTTPS obligatoire en production.');
+    }
+    if (uri.host == Uri.parse(productionApiBaseUrl).host &&
+        !['', '/'].contains(uri.path)) {
+      throw ArgumentError(
+          'Le backend Render de production expose les API à la racine, sans /api/v1.');
     }
     final octets = uri.host.split('.').map(int.tryParse).toList();
     final ipv4 = octets.length == 4 &&

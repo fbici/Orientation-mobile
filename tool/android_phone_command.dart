@@ -1,17 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:orientia/core/constants/api_endpoints.dart';
 
 // Read-only helper: prints a command for a detected phone, never installs an app.
 Future<void> main(List<String> arguments) async {
   if (arguments.contains('--help')) {
     stdout.writeln(
-        'dart run tool/android_phone_command.dart --api-url URL_HTTPS [--device ID]');
+        'dart run tool/android_phone_command.dart [--api-url URL_HTTPS] [--device ID]');
     stdout.writeln(
         'Détecte le téléphone physique et affiche la commande Flutter.');
     return;
   }
   String? requested;
-  String? renderApi;
+  String? renderApi = Platform.environment['ORIENTIA_API_URL'];
+  if (renderApi == null || renderApi.trim().isEmpty) {
+    renderApi = productionApiBaseUrl;
+  }
   for (var i = 0; i < arguments.length; i += 2) {
     if (i + 1 >= arguments.length ||
         !['--device', '--api-url'].contains(arguments[i])) {
@@ -35,7 +39,7 @@ Future<void> main(List<String> arguments) async {
       !['', '/'].contains(uri.path) ||
       !RegExp(r'^https://[A-Za-z0-9.-]+(?::[0-9]+)?/?$').hasMatch(renderApi!)) {
     stderr.writeln(
-        'Indiquez --api-url avec la véritable URL HTTPS racine du nouveau backend Render. L’ancien service a été supprimé.');
+        'Indiquez --api-url avec une URL HTTPS racine valide, sans /api/v1.');
     exitCode = 2;
     return;
   }
@@ -71,10 +75,9 @@ Future<void> main(List<String> arguments) async {
     }
     stdout.writeln('Téléphone : ${devices.single['name']}');
     stdout.writeln('Identifiant Android conservé : com.orientia.orientia');
-    stdout.writeln(
-        'Le backend F1–F3.2 doit être déployé après validation Render.');
+    stdout.writeln('Backend HTTPS : $renderApi');
     stdout.writeln('Commande à lancer dans le terminal VS Code :');
-    stdout.writeln('flutter run -d "$id" --dart-define=APP_ENV=development '
+    stdout.writeln('flutter run -d "$id" --dart-define=APP_ENV=production '
         '--dart-define=API_BASE_URL=$renderApi');
   } on Object {
     stderr.writeln(

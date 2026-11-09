@@ -2,20 +2,25 @@
 
 Application Flutter connectée au backend Orientia : profil académique, OCR, catalogues sourcés, recommandations, simulations, comparaisons, bourses, assistant et exports.
 
-## Lancement
+## Production Render
+
+Backend public : **https://orientation-backend-d0ys.onrender.com**, sans `/api/v1`.
+
+```powershell
+flutter run --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
+flutter build apk --debug --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
+```
+
+`APP_ENV=production` choisit aussi cette URL par defaut. Une valeur compilee `API_BASE_URL` explicite reste prioritaire. Aucun secret serveur n'est embarque. L'APK debug sert a la recette ; la configuration release actuelle utilise encore la signature debug et ne constitue pas une signature de distribution.
+
+## Developpement local
 
 ```powershell
 flutter pub get
 flutter run --dart-define=APP_ENV=development --dart-define=API_BASE_URL=http://10.0.2.2:8080/api/v1
 ```
 
-`10.0.2.2` désigne l'hôte depuis l'émulateur Android. Sur téléphone, utiliser l'adresse privée de la machine backend sur le même réseau. HTTPS est exigé pour les adresses distantes et les builds release. Aucun backend de production n'est configuré par défaut.
-
-```powershell
-flutter build apk --release --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://votre-api.example/api/v1
-```
-
-Remplacer cette adresse par votre API ; configurer la signature de distribution dans l'environnement de livraison. Le mobile n'embarque aucune clé serveur. Inscription et récupération exigent messagerie et tenant public configurés côté backend.
+Le lancement sans parametre conserve cet environnement local. `10.0.2.2` designe l'hote depuis l'emulateur Android ; sur telephone local, utiliser l'adresse privee du serveur. HTTPS est impose pour la production et les builds release. Aucun prefixe API n'est ajoute automatiquement.
 
 ## Vérification
 
@@ -38,19 +43,16 @@ Le lanceur exige les fichiers temporaires de connexion F1 et OCR F2 existants, c
 
 Résultats, contrats et limites : [rapport F3.3](SPRINT_F3_3_FLUTTER_INTEGRATION.md).
 
-## Test Android apres le nouveau deploiement Render
+## Telephone Android
 
-L'ancien service a ete supprime. Aucune nouvelle URL de production n'est connue ni embarquee dans l'aide Android.
-
-Une fois le nouveau service publie, copier son URL HTTPS reelle (sans `/api/v1`) dans une variable PowerShell, puis connecter le telephone et autoriser le debogage USB :
+Connecter le telephone, activer le debogage USB et accepter la cle RSA :
 
 ```powershell
-$env:ORIENTIA_API_URL = Read-Host 'URL HTTPS reelle du nouveau backend Render'
-dart run tool/android_phone_command.dart --api-url $env:ORIENTIA_API_URL
+dart run tool/android_phone_command.dart
 ```
 
-L'aide affiche la commande `flutter run` exacte pour le telephone physique detecte ; elle ne lance aucune installation. `API_BASE_URL` et `APP_ENV=development` sont transmis avec `--dart-define`. Le profil backend prod expose les routes a la racine `/`.
+L'aide utilise le backend Render public ci-dessus et affiche la commande exacte pour l'appareil physique detecte ; elle n'installe rien. Une variable PowerShell `ORIENTIA_API_URL` peut remplacer cette URL ; `--api-url` est prioritaire. Cette variable de terminal n'est pas lue directement par Flutter : l'aide la transmet via `--dart-define=API_BASE_URL=...`.
 
-Le package courant reste `com.orientia.orientia`. Verifier la signature et le package d'une installation existante sans modifier l'identite ni desinstaller automatiquement l'application.
+Le package reste `com.orientia.orientia`. Ne pas modifier la signature ni desinstaller automatiquement une version existante pour forcer une installation.
 
-Rapport precedent (historique, ancienne URL retiree) : [synchronisation Android](ORIENTIA_GITHUB_SYNC_ANDROID_TEST.md). Nouveau rapport : [preparation du redeploiement](ORIENTIA_AUDIT_FINAL_REDEPLOIEMENT_RENDER.md).
+Rapport courant : [connexion et validation mobile production](ORIENTIA_MOBILE_PRODUCTION_RENDER.md). Les rapports des anciens sprints et du redeploiement restent des documents historiques.
