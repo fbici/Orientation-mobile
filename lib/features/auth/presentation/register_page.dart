@@ -46,6 +46,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> register() async {
     if (busy || form.currentState?.validate() != true) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       busy = true;
       error = null;
@@ -83,6 +84,7 @@ class _RegisterPageState extends State<RegisterPage> {
         child: TextFormField(
       key: ValueKey('register-$name'),
       controller: fields[name],
+      enabled: !busy,
       obscureText:
           secret && !(name == 'password' ? showPassword : showConfirmation),
       autofillHints: switch (name) {
@@ -106,13 +108,15 @@ class _RegisterPageState extends State<RegisterPage> {
           prefixIcon: Icon(icon, size: 22),
           suffixIcon: secret
               ? IconButton(
-                  onPressed: () => setState(() {
-                        if (name == 'password') {
-                          showPassword = !showPassword;
-                        } else {
-                          showConfirmation = !showConfirmation;
-                        }
-                      }),
+                  onPressed: busy
+                      ? null
+                      : () => setState(() {
+                            if (name == 'password') {
+                              showPassword = !showPassword;
+                            } else {
+                              showConfirmation = !showConfirmation;
+                            }
+                          }),
                   tooltip:
                       (name == 'password' ? showPassword : showConfirmation)
                           ? 'Masquer le mot de passe'

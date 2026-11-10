@@ -46,6 +46,7 @@ migrate_working_dir/
 *.pfx
 *.pem
 *.key
+client_secret_*.json
 
 # Symbolication related
 app.*.symbols

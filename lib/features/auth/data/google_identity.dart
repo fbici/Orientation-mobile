@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/network/api_failure.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/google_oauth.dart';
 
 // Public server audience. The Android package/SHA OAuth client remains registered
 // in Google Cloud; its ID must not be substituted for this server audience.
-const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID',
+    defaultValue: AppConstants.environment == 'production'
+        ? productionGoogleWebClientId
+        : '');
 
 abstract interface class GoogleIdentityProvider {
   Future<String?> authenticate();

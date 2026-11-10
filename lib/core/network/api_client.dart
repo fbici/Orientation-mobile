@@ -292,8 +292,24 @@ class ApiClient extends ChangeNotifier {
         onSendProgress: onSendProgress);
   }
 
-  Future<Response<dynamic>> register(Json data) =>
-      _auth.post('/auth/register', data: data);
+  Future<Response<dynamic>> register(Json data) async {
+    final response = await _auth.post<dynamic>('/auth/register', data: data);
+    final acknowledgement = response.data;
+    if (response.statusCode != 202 ||
+        acknowledgement is! Map ||
+        acknowledgement['message'] is! String ||
+        (acknowledgement['message'] as String).trim().isEmpty) {
+      // A successful HTTP status alone does not acknowledge a registration.
+      // In particular, an HTML proxy page must never appear as account success.
+      throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          message: 'Registration acknowledgement was not recognized');
+    }
+    return response;
+  }
+
   Future<Response<dynamic>> forgotPassword(String email) =>
       _auth.post('/auth/forgot-password', data: {'email': email});
   Future<Response<dynamic>> resetPassword(String token, String password) =>

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:orientia/core/constants/api_endpoints.dart';
+import 'package:orientia/core/constants/google_oauth.dart';
 
 // Read-only helper: prints a command for a detected phone, never installs an app.
 Future<void> main(List<String> arguments) async {
@@ -13,6 +14,9 @@ Future<void> main(List<String> arguments) async {
   }
   String? requested;
   String? googleClient = Platform.environment['GOOGLE_WEB_CLIENT_ID'];
+  if (googleClient == null || googleClient.trim().isEmpty) {
+    googleClient = productionGoogleWebClientId;
+  }
   String? renderApi = Platform.environment['ORIENTIA_API_URL'];
   if (renderApi == null || renderApi.trim().isEmpty) {
     renderApi = productionApiBaseUrl;

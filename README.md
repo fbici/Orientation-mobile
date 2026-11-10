@@ -6,7 +6,7 @@ Ce README est la documentation de référence du projet. Toute modification doit
 
 ## Démarrage et Android
 
-Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.3.0+4**. Package : **`com.orientia.orientia`**. Recette avec Flutter 3.38.4 / Dart 3.10.3 ; aucun remplacement du projet ou de son SDK.
+Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.3.1+5**. Package : **`com.orientia.orientia`**. Recette avec Flutter 3.38.4 / Dart 3.10.3 ; aucun remplacement du projet ou de son SDK.
 
 ```powershell
 flutter pub get
@@ -91,11 +91,11 @@ Un transport d'authentification distinct renouvelle une seule fois sur 401, mutu
 
 Client **Android** fourni : `1048361062873-9p9jrn2umec435bddqen2epn6fur93d8.apps.googleusercontent.com`. Il identifie le package et son certificat SHA-1 dans Google Cloud. Le bouton n'est plus un dialogue « en développement » : `google_sign_in` ouvre l'authentification Android, puis le jeton d'identité est envoyé par POST `/auth/google`. Une session n'est ouverte qu'après acceptation des vrais jetons Orientia par le backend. L'annulation et les erreurs ne connectent pas l'utilisateur. Les jetons bénéficient de la même politique de mémorisation et de renouvellement que la connexion par mot de passe.
 
-**Activation encore bloquée : l'identifiant public de type Application Web n'a pas été fourni.** Même pour Android, Google demande cet identifiant comme `serverClientId` pour émettre le jeton à destination du serveur ; ce n'est pas une demande de développer une application Web. [Documentation officielle du plugin Android](https://pub.dev/packages/google_sign_in_android), [vérification côté serveur Google](https://developers.google.com/identity/sign-in/android/backend-auth). Ne pas substituer l'identifiant Android et ne jamais intégrer de secret OAuth dans Flutter.
+Le client **Application Web** a été fourni : `1048361062873-j7dmfajmue27jhbs1ms7jmbpnpa5pcp3.apps.googleusercontent.com`. Il est maintenant utilisé comme audience publique par défaut lorsque `APP_ENV=production`, dans `core/constants/google_oauth.dart`. `--dart-define=GOOGLE_WEB_CLIENT_ID=...` reste prioritaire ; en développement, aucune audience n'est imposée sans cette option. Le client Android package/certificat est conservé dans Google Cloud. [Documentation officielle du plugin Android](https://pub.dev/packages/google_sign_in_android), [vérification côté serveur Google](https://developers.google.com/identity/sign-in/android/backend-auth). Aucun secret client OAuth ni fichier téléchargé `client_secret_*.json` n'entre dans Flutter ou Git.
 
-Dans le même projet Google Cloud, créer un client **Application Web**, transmettre seulement son identifiant public, puis configurer **le même** `GOOGLE_WEB_CLIENT_ID` sur Render et à la compilation Flutter. Le backend livré doit avoir `GOOGLE_ENABLED=true` ; il reste désactivé par défaut. Aucun client secret ni URI de callback Web n'est requis pour ce flux natif ID-token. Les comptes existants avec le même e-mail ne sont pas liés automatiquement : utiliser leur mot de passe. Une nouvelle identité Google vérifiée crée uniquement un compte candidat.
+Le profil backend `prod` utilise cette même audience publique et active désormais Google par défaut après son déploiement. `GOOGLE_WEB_CLIENT_ID` et `GOOGLE_ENABLED` restent des surcharges Render ; une ancienne valeur `GOOGLE_ENABLED=false` le désactive. Les autres profils restent désactivés par défaut. Aucun client secret ni URI de callback Web n'est requis pour ce flux natif ID-token. Les comptes existants avec le même e-mail ne sont pas liés automatiquement : utiliser leur mot de passe. Une nouvelle identité Google vérifiée crée uniquement un compte candidat. La migration V84 et le nouveau code doivent réellement être déployés avant la recette ; un APK compilé ne met pas à jour Render.
 
-Après avoir reçu ce véritable identifiant, le placer dans `$env:GOOGLE_WEB_CLIENT_ID` puis :
+Les commandes du début fonctionnent désormais avec l'audience de production intégrée. Pour utiliser explicitement une autre audience publique, la placer dans `$env:GOOGLE_WEB_CLIENT_ID`, puis :
 
 ```powershell
 flutter run --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com --dart-define=GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID
@@ -103,7 +103,15 @@ flutter build apk --debug --dart-define=APP_ENV=production --dart-define=API_BAS
 dart run tool/android_phone_command.dart
 ```
 
-Le script lit aussi cette variable et ajoute l'option à la commande affichée ; `--google-web-client-id` permet une valeur explicite. Sans cette configuration, un message honnête propose la connexion par e-mail. La connexion Google réelle en production n'est pas déclarée validée.
+Le script reprend par défaut l'audience de production et l'ajoute à la commande affichée. La variable de terminal `GOOGLE_WEB_CLIENT_ID` ou `--google-web-client-id` la remplace. Les tests de compilation couvrent les profils local/production et la surcharge explicite. La connexion Google réelle en production n'est pas déclarée validée ; le client Android doit correspondre au package/SHA-1 de l'APK et les deux clients doivent appartenir au même projet Google Cloud.
+
+## Diagnostic de l'inscription et du déploiement
+
+L'inscription n'est acceptée que sur HTTP **202** avec un objet JSON contenant un message non vide. Un HTML 200 de proxy ou un accusé incomplet ne produit aucun succès. Pendant l'envoi, les champs et actions de visibilité sont désactivés, avec une seule requête ; aucun retry automatique n'est ajouté.
+
+Un 503 contenant exactement le motif serveur `Email delivery unavailable; no delivery is confirmed` est présenté comme une indisponibilité de messagerie, sans exposer de détail fournisseur ni l'existence du compte. Un autre 503 reste une panne générale. Un délai de connexion/envoi/réception dépassé indique une demande non confirmée et invite à vérifier le résultat avant de réessayer ; il ne garantit pas qu'aucun traitement serveur n'a eu lieu.
+
+Le journal communiqué le 10 novembre montre un build Docker réussi puis un déploiement expiré sans port détecté. La configuration du port dans le dépôt est déjà `PORT` / `0.0.0.0`. Le contrôle public a obtenu `/actuator/health` UP, mais OPTIONS `/auth/google` annonçait seulement GET/HEAD/OPTIONS. Ces constats ne certifient pas que le dernier backend est actif et ne permettent pas d'attribuer l'échec d'inscription à SendGrid. Il faut confirmer le déploiement Live et consulter les WARN à l'heure de la tentative, en contrôlant `SENDGRID_ENABLED`, la présence de la clé, l'expéditeur vérifié, `APP_BASE_URL` et éventuellement `PASSWORD_RESET_URL`, sans transmettre de secret. Les détails de démarrage et de configuration sont documentés dans le README backend.
 
 Contact public : **lestudioviral@gmail.com**. Alertes administratives côté serveur : **adminorientia@gmail.com**. Aucune clé SendGrid, aucun secret JWT ou identifiant PostgreSQL ne doit entrer dans Flutter.
 
@@ -115,9 +123,11 @@ flutter test
 flutter build apk --debug --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
 ```
 
-La campagne 1.3.0 a obtenu **57 tests réussis** et `flutter analyze` sans anomalie. Elle couvre les trois présentations et leur boucle/pause/accessibilité, la recherche et sélection réelle d'un pays, plusieurs plans téléphoniques, la récupération et le reset (transports simulés), l'échange du jeton Google, l'annulation, le conflit de compte et la protection contre les doubles clics. Les protections de session/renouvellement et les parcours métier existants restent couverts.
+La campagne 1.3.1 a obtenu **68 tests réussis** et `flutter analyze` sans anomalie. Les tests supplémentaires d'audience Google passent en production et avec une surcharge explicite. Elle couvre les trois présentations et leur boucle/pause/accessibilité, la recherche et sélection réelle d'un pays, plusieurs plans téléphoniques, la récupération et le reset (transports simulés), l'échange du jeton Google, l'annulation, le conflit de compte et la protection contre les doubles clics. Les régressions d'inscription couvrent messagerie503, proxy503, HTML200, accusés202 incomplets, timeouts et formulaire figé avec soumission unique. Les protections de session/renouvellement et les parcours métier existants restent couverts.
 
-APK debug 1.3.0+4 compilé avec la vraie URL Render puis installé par `adb install -r` sur Samsung SM-A326B, sans effacement de données. Connexion et nouvelle récupération observées sur appareil, avec navigation publique vers le reset/vérification et message explicite de configuration Google absente. Aucun formulaire n'a été soumis en production. Le sélecteur de pays et les trois présentations ont été testés automatiquement ; cette campagne ne prétend pas avoir observé chaque écran sur appareil. Les captures temporaires restent hors Git.
+APK debug **1.3.1+5** compilé avec la vraie URL Render et l'audience Google publique intégrée ; package/version contrôlés dans le manifeste de l'APK. Le Samsung était déconnecté au contrôle : cette nouvelle version n'a pas été installée par cette campagne. Pour une mise à jour conservant les données : `adb install -r build/app/outputs/flutter-apk/app-debug.apk` avec un appareil autorisé et la même signature.
+
+Historique appareil : la 1.3.0+4 avait été installée par `adb install -r` sur Samsung SM-A326B. Connexion et nouvelle récupération observées, avec navigation publique vers le reset/vérification et message de configuration Google alors absente. Aucun formulaire n'a été soumis en production. Le sélecteur de pays et les trois présentations ont été testés automatiquement ; cette campagne ne prétend pas avoir observé chaque écran sur appareil. Les captures temporaires restent hors Git.
 
 Backend associé : commit `162ff8de`, avec POST `/auth/google`, validation internationale et migration V84. Tests : 229 sur schéma PostgreSQL neuf puis 9 unitaires ciblés après deux régressions supplémentaires ; aucune base Render ni messagerie réelle utilisée. Push du code et activation/déploiement effectif sont distincts.
 
@@ -136,5 +146,6 @@ Aucun compte candidat de test autorisé n'est disponible en production. Les parc
 | Présentation initiale 1.1.0 | Splash, illustration et formulaires blancs ; version installée et observée sur Samsung, ensuite désinstallée par le propriétaire |
 | Référence utilisateur 1.2.0 | Remplacement par la maquette violette fournie, logo sans carré, identité séparée, animations et mémorisation facultative ; documentation unifiée dans ce README |
 | Parcours 1.3.0 | Trois présentations illustrées automatiques/manuelles, récupération restylée et testée, téléphone international et validation serveur, authentification Google native raccordée sous configuration explicite ; harmonisation du thème métier |
+| Activation 1.3.1 | Client Web public fourni et intégré en production, surcharge locale conservée, inscription sans faux succès avec erreurs précises et protection contre les doubles soumissions ; diagnostic du déploiement Render séparé de celui de SendGrid |
 
 Les rapports supprimés couvraient F3.3, préservation/preuves, synchronisation, audit Render et validation mobile. Leurs détails historiques restent dans les commits, pas dans de nouveaux rapports concurrents.

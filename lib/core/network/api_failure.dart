@@ -11,6 +11,30 @@ class ApiFailure implements Exception {
       final data = error.response?.data;
       final reason = data is Map ? data['message'] : null;
       final code = data is Map ? (data['code'] ?? reason) : null;
+      if (status == 503 &&
+          reason == 'Email delivery unavailable; no delivery is confirmed') {
+        return const ApiFailure(
+            'Le service de vérification par e-mail est momentanément indisponible. Votre demande et l’envoi du message n’ont pas pu être confirmés. Réessayez plus tard.',
+            503);
+      }
+      final registration = error.requestOptions.path == '/auth/register';
+      if (registration && status != null && status >= 200 && status < 300) {
+        return ApiFailure(
+            'Le serveur n’a pas confirmé votre demande d’inscription. Consultez vos e-mails avant de réessayer.',
+            status);
+      }
+      final uncertainWrite =
+          !['GET', 'HEAD'].contains(error.requestOptions.method.toUpperCase());
+      if (status == null &&
+          [
+            DioExceptionType.connectionTimeout,
+            DioExceptionType.sendTimeout,
+            DioExceptionType.receiveTimeout,
+          ].contains(error.type)) {
+        return ApiFailure(uncertainWrite
+            ? 'Le délai d’attente a été dépassé. La réception de votre demande n’a pas pu être confirmée. Vérifiez le résultat avant de réessayer.'
+            : 'Le délai d’attente a été dépassé. Vérifiez votre connexion puis réessayez.');
+      }
       if (code == 'GOOGLE_ACCOUNT_EXISTS') {
         return const ApiFailure(
             'Un compte Orientia existe déjà avec cette adresse. Connectez-vous avec votre mot de passe ; les comptes ne sont pas liés automatiquement.');

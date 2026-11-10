@@ -12,7 +12,10 @@ void main() {
     final api = clientFor((r, s) => jsonResponse({}), auth: (r, s) {
       expect(r.path, '/auth/register');
       sent = Map<String, dynamic>.from(r.data as Map);
-      return jsonResponse({}, 202);
+      return jsonResponse({
+        'message':
+            'Registration request accepted. If eligible, check your email.'
+      }, 202);
     });
     await tester.pumpWidget(MaterialApp(
         home: RegisterPage(
