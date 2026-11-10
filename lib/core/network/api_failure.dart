@@ -10,6 +10,27 @@ class ApiFailure implements Exception {
       final status = error.response?.statusCode;
       final data = error.response?.data;
       final reason = data is Map ? data['message'] : null;
+      final code = data is Map ? (data['code'] ?? reason) : null;
+      if (code == 'GOOGLE_ACCOUNT_EXISTS') {
+        return const ApiFailure(
+            'Un compte Orientia existe déjà avec cette adresse. Connectez-vous avec votre mot de passe ; les comptes ne sont pas liés automatiquement.');
+      }
+      if (code == 'GOOGLE_SIGNIN_UNAVAILABLE') {
+        return const ApiFailure(
+            'La connexion Google doit encore être activée sur le serveur. Utilisez votre adresse e-mail pour le moment.');
+      }
+      if (code == 'INVALID_PHONE') {
+        return const ApiFailure(
+            'Numéro de téléphone invalide. Vérifiez le pays et le numéro saisi.');
+      }
+      if (reason is String &&
+          reason.startsWith('Numéro de téléphone invalide.')) {
+        return ApiFailure(reason, status);
+      }
+      if (code == 'GOOGLE_SIGNIN_RETRY') {
+        return const ApiFailure(
+            'Une connexion simultanée a été détectée. Réessayez Google.');
+      }
       if ((status == 401 || status == 403) &&
           reason is String &&
           reason.contains('EMAIL_NOT_VERIFIED')) {

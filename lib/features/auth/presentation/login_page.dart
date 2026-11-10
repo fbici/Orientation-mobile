@@ -3,18 +3,21 @@ import '../../../core/network/api_client.dart';
 import 'auth_widgets.dart';
 import '../../../core/widgets/academic_widgets.dart';
 import 'recovery_page.dart';
+import '../data/google_identity.dart';
 
 class LoginPage extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onLoginSuccess;
   final VoidCallback? onRegister;
   final VoidCallback? onIntroduction;
+  final GoogleIdentityProvider? googleIdentity;
   const LoginPage(
       {super.key,
       required this.apiClient,
       required this.onLoginSuccess,
       this.onRegister,
-      this.onIntroduction});
+      this.onIntroduction,
+      this.googleIdentity});
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -23,7 +26,7 @@ class _LoginPageState extends State<LoginPage> {
   final form = GlobalKey<FormState>(),
       email = TextEditingController(),
       password = TextEditingController();
-  bool busy = false, show = false, remember = true;
+  bool busy = false, show = false, remember = true, usingGoogle = false;
   Object? error;
   @override
   void dispose() {
@@ -46,6 +49,31 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) setState(() => error = e);
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> googleLogin() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      usingGoogle = true;
+      error = null;
+    });
+    try {
+      final token = await (widget.googleIdentity ?? AndroidGoogleIdentity())
+          .authenticate();
+      if (token == null) return;
+      await widget.apiClient.loginWithGoogle(token, rememberMe: remember);
+      if (mounted) widget.onLoginSuccess();
+    } catch (failure) {
+      if (mounted) setState(() => error = failure);
+    } finally {
+      if (mounted) {
+        setState(() {
+          busy = false;
+          usingGoogle = false;
+        });
+      }
     }
   }
 
@@ -132,8 +160,8 @@ class _LoginPageState extends State<LoginPage> {
             AuthActionButton(
                 label: 'Se connecter',
                 pendingLabel: 'Connexion en cours…',
-                busy: busy,
-                onPressed: login),
+                busy: busy && !usingGoogle,
+                onPressed: busy ? null : login),
             const SizedBox(height: 30),
             const Row(children: [
               Expanded(child: Divider(color: Color(0xffc8bfde))),
@@ -147,7 +175,9 @@ class _LoginPageState extends State<LoginPage> {
               Expanded(child: Divider(color: Color(0xffc8bfde)))
             ]),
             const SizedBox(height: 18),
-            const GoogleAuthButton(),
+            GoogleAuthButton(
+                onPressed: busy ? null : googleLogin,
+                busy: busy && usingGoogle),
             const SizedBox(height: 26),
             Wrap(
                 alignment: WrapAlignment.center,

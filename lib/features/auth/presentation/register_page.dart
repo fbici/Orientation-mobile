@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import 'auth_widgets.dart';
+import '../../../core/widgets/international_phone_field.dart';
 
 class RegisterPage extends StatefulWidget {
   final ApiClient apiClient;
@@ -17,12 +18,13 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final form = GlobalKey<FormState>();
+  final phone = PhoneController(
+      initialValue: const PhoneNumber(isoCode: IsoCode.BJ, nsn: ''));
   final fields = {
     for (final k in [
       'firstName',
       'lastName',
       'email',
-      'phone',
       'password',
       'confirmation'
     ])
@@ -35,6 +37,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Object? error;
   @override
   void dispose() {
+    phone.dispose();
     for (final c in fields.values) {
       c.dispose();
     }
@@ -49,8 +52,9 @@ class _RegisterPageState extends State<RegisterPage> {
     });
     try {
       await widget.apiClient.register({
-        for (final k in ['firstName', 'lastName', 'email', 'phone'])
+        for (final k in ['firstName', 'lastName', 'email'])
           k: fields[k]!.text.trim(),
+        'phone': normalizedPhone(phone.value),
         'password': fields['password']!.text
       });
       if (mounted) setState(() => accepted = true);
@@ -185,8 +189,9 @@ class _RegisterPageState extends State<RegisterPage> {
                         field('email', 'Adresse e-mail',
                             Icons.mail_outline_rounded),
                         const SizedBox(height: 10),
-                        field('phone', '🇧🇯 +229   Téléphone (facultatif)',
-                            Icons.phone_android_rounded),
+                        AuthField(
+                            child: InternationalPhoneField(
+                                controller: phone, enabled: !busy)),
                         const SizedBox(height: 10),
                         field('password', 'Mot de passe',
                             Icons.lock_outline_rounded),

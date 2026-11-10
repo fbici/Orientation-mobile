@@ -1,3 +1,4 @@
+import '../../../core/widgets/international_phone_field.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/models/academic_models.dart';
@@ -21,8 +22,10 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> account(Json me, bool password) async {
     final first =
             TextEditingController(text: me['firstName']?.toString() ?? ''),
-        last = TextEditingController(text: me['lastName']?.toString() ?? ''),
-        phone = TextEditingController();
+        last = TextEditingController(text: me['lastName']?.toString() ?? '');
+    final phone = PhoneController(
+        initialValue: const PhoneNumber(isoCode: IsoCode.BJ, nsn: ''));
+    final accountForm = GlobalKey<FormState>();
     final old = TextEditingController(), fresh = TextEditingController();
     bool confirmed = false;
     final yes = await showDialog<bool>(
@@ -33,52 +36,57 @@ class _ProfilePageState extends State<ProfilePage> {
                         ? 'Changer le mot de passe'
                         : 'Modifier mes coordonnées'),
                     content: SingleChildScrollView(
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                      if (password) ...[
-                        TextField(
-                            controller: old,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                                labelText: 'Mot de passe actuel')),
-                        TextField(
-                            controller: fresh,
-                            obscureText: true,
-                            maxLength: 72,
-                            decoration: const InputDecoration(
-                                labelText:
-                                    'Nouveau mot de passe — 12 caractères minimum'))
-                      ] else ...[
-                        TextField(
-                            controller: first,
-                            decoration:
-                                const InputDecoration(labelText: 'Prénom')),
-                        TextField(
-                            controller: last,
-                            decoration:
-                                const InputDecoration(labelText: 'Nom')),
-                        TextField(
-                            controller: phone,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                                labelText: 'Numéro à enregistrer')),
-                        const Text(
-                            'Le numéro actuel n’est pas retourné par le serveur. Un champ vide supprimera le numéro précédent.')
-                      ],
-                      CheckboxListTile(
-                          value: confirmed,
-                          onChanged: (v) =>
-                              update(() => confirmed = v ?? false),
-                          title: const Text(
-                              'Je confirme le remplacement de ces informations.')),
-                    ])),
+                        child: Form(
+                            key: accountForm,
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (password) ...[
+                                    TextField(
+                                        controller: old,
+                                        obscureText: true,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Mot de passe actuel')),
+                                    TextField(
+                                        controller: fresh,
+                                        obscureText: true,
+                                        maxLength: 72,
+                                        decoration: const InputDecoration(
+                                            labelText:
+                                                'Nouveau mot de passe — 12 caractères minimum'))
+                                  ] else ...[
+                                    TextField(
+                                        controller: first,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Prénom')),
+                                    TextField(
+                                        controller: last,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Nom')),
+                                    InternationalPhoneField(controller: phone),
+                                    const Text(
+                                        'Le numéro actuel n’est pas retourné par le serveur. Un champ vide supprimera le numéro précédent.')
+                                  ],
+                                  CheckboxListTile(
+                                      value: confirmed,
+                                      onChanged: (v) =>
+                                          update(() => confirmed = v ?? false),
+                                      title: const Text(
+                                          'Je confirme le remplacement de ces informations.')),
+                                ]))),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(c, false),
                           child: const Text('Annuler')),
                       FilledButton(
-                          onPressed:
-                              confirmed ? () => Navigator.pop(c, true) : null,
+                          onPressed: confirmed
+                              ? () {
+                                  if (accountForm.currentState?.validate() !=
+                                      false) {
+                                    Navigator.pop(c, true);
+                                  }
+                                }
+                              : null,
                           child: const Text('Enregistrer'))
                     ])));
     if (yes == true) {
@@ -98,7 +106,7 @@ class _ProfilePageState extends State<ProfilePage> {
           await widget.apiClient.updateMe({
             'firstName': first.text.trim(),
             'lastName': last.text.trim(),
-            'phone': phone.text.trim().isEmpty ? null : phone.text.trim()
+            'phone': normalizedPhone(phone.value)
           });
           if (mounted) setState(() => revision++);
         }
@@ -106,7 +114,8 @@ class _ProfilePageState extends State<ProfilePage> {
         if (mounted) setState(() => error = e);
       }
     }
-    for (final controller in [first, last, phone, old, fresh]) {
+    phone.dispose();
+    for (final controller in [first, last, old, fresh]) {
       controller.dispose();
     }
   }
@@ -129,7 +138,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Text(text(me['email']), textAlign: TextAlign.center),
                 if (error != null) ErrorNotice(error!),
                 ListTile(
-                    leading: const Icon(Icons.school),
+                    leading: const Icon(Icons.menu_book_rounded),
                     title: const Text('Mon profil académique'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(

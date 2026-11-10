@@ -6,28 +6,43 @@ import 'package:orientia/core/constants/api_endpoints.dart';
 Future<void> main(List<String> arguments) async {
   if (arguments.contains('--help')) {
     stdout.writeln(
-        'dart run tool/android_phone_command.dart [--api-url URL_HTTPS] [--device ID]');
+        'dart run tool/android_phone_command.dart [--api-url URL_HTTPS] [--device ID] [--google-web-client-id ID_PUBLIC]');
     stdout.writeln(
         'Détecte le téléphone physique et affiche la commande Flutter.');
     return;
   }
   String? requested;
+  String? googleClient = Platform.environment['GOOGLE_WEB_CLIENT_ID'];
   String? renderApi = Platform.environment['ORIENTIA_API_URL'];
   if (renderApi == null || renderApi.trim().isEmpty) {
     renderApi = productionApiBaseUrl;
   }
   for (var i = 0; i < arguments.length; i += 2) {
     if (i + 1 >= arguments.length ||
-        !['--device', '--api-url'].contains(arguments[i])) {
-      stderr.writeln('Options attendues : --api-url URL_HTTPS [--device ID]');
+        !['--device', '--api-url', '--google-web-client-id']
+            .contains(arguments[i])) {
+      stderr.writeln(
+          'Options : --api-url URL_HTTPS, --device ID, --google-web-client-id ID_PUBLIC');
       exitCode = 2;
       return;
     }
     if (arguments[i] == '--device') {
       requested = arguments[i + 1];
+    } else if (arguments[i] == '--google-web-client-id') {
+      googleClient = arguments[i + 1];
     } else {
       renderApi = arguments[i + 1];
     }
+  }
+  googleClient = googleClient?.trim();
+  if (googleClient != null &&
+      googleClient.isNotEmpty &&
+      !RegExp(r'^[A-Za-z0-9-]+\.apps\.googleusercontent\.com$')
+          .hasMatch(googleClient)) {
+    stderr.writeln(
+        'Identifiant Google public invalide. Utilisez le client de type Application Web.');
+    exitCode = 2;
+    return;
   }
   final uri = renderApi == null ? null : Uri.tryParse(renderApi);
   if (uri == null ||
@@ -76,9 +91,14 @@ Future<void> main(List<String> arguments) async {
     stdout.writeln('Téléphone : ${devices.single['name']}');
     stdout.writeln('Identifiant Android conservé : com.orientia.orientia');
     stdout.writeln('Backend HTTPS : $renderApi');
+    if (googleClient == null || googleClient.isEmpty) {
+      stdout.writeln(
+          'Google : identifiant Web non fourni ; la connexion par e-mail reste disponible.');
+    }
     stdout.writeln('Commande à lancer dans le terminal VS Code :');
     stdout.writeln('flutter run -d "$id" --dart-define=APP_ENV=production '
-        '--dart-define=API_BASE_URL=$renderApi');
+        '--dart-define=API_BASE_URL=$renderApi'
+        '${googleClient == null || googleClient.isEmpty ? '' : ' --dart-define=GOOGLE_WEB_CLIENT_ID=$googleClient'}');
   } on Object {
     stderr.writeln(
         'Impossible de lire les appareils. Exécutez flutter devices et adb devices -l.');

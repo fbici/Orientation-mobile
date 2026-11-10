@@ -6,7 +6,7 @@ Ce README est la documentation de référence du projet. Toute modification doit
 
 ## Démarrage et Android
 
-Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.2.0+3**. Package : **`com.orientia.orientia`**.
+Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.3.0+4**. Package : **`com.orientia.orientia`**. Recette avec Flutter 3.38.4 / Dart 3.10.3 ; aucun remplacement du projet ou de son SDK.
 
 ```powershell
 flutter pub get
@@ -45,13 +45,23 @@ Une URL explicite est prioritaire. Aucun préfixe n'est ajouté automatiquement.
 La référence retenue le 10 novembre est la maquette utilisateur « Interface mobile Orientia en trois écrans ». Elle remplace la direction blanche/bleue précédente : fond lavande clair, rubans violets, texte bleu nuit, champs avec icônes et ombres légères, boutons violets dégradés. Les textes et contrôles restent natifs Flutter, et les formulaires sont défilables sur petit écran ou avec clavier/grandes polices.
 
 - Démarrage animé : apparition et mise à l'échelle du vrai logo, avant l'accès aux pages.
-- Première ouverture : présentation illustrée, titre « Votre passerelle vers l’enseignement supérieur », description, indicateurs et action **Commencer** ; **Passer** mène à la même étape suivante. Une préférence non sensible `orientia_intro_seen_v1` évite de répéter cette présentation. **Découvrir Orientia** permet de la revoir depuis la connexion.
+- Première ouverture : trois présentations illustrées — découverte, choix du parcours, bourses. Rotation toutes les 7 secondes, balayage manuel et points cliquables, commande de pause/reprise. La rotation s'arrête hors premier plan ou si la réduction des animations/navigation accessible est activée ; la navigation manuelle reste disponible. **Commencer** et **Passer** mènent à la même étape suivante. Une préférence non sensible `orientia_intro_seen_v1` évite de répéter cette présentation. **Découvrir Orientia** permet de la revoir depuis la connexion.
 - Connexion : e-mail, mot de passe avec œil, mémorisation facultative, récupération, Google, inscription. Entrées progressives, pression du bouton et chargement réel ; les animations d'entrée respectent la réduction des animations système.
 - Inscription : **Nom et Prénom distincts**, e-mail, téléphone facultatif, mot de passe et confirmation avec visibilités indépendantes. Les noms sont envoyés séparément (`lastName`, `firstName`). Mot de passe : 12 caractères minimum et 72 octets UTF-8 maximum ; la jauge est indicative, calculée à partir de la saisie. Une demande acceptée n'ouvre pas une session et ne prouve pas la livraison d'un e-mail.
+- Récupération : même présentation lavande et marque que les formulaires. Demande par e-mail, saisie du lien reçu ou de son jeton sécurisé de 43 caractères, nouveau mot de passe confirmé, vérification d'adresse. Les succès ne prétendent pas qu'un e-mail a été livré ; les liens expirés/utilisés sont expliqués. Aucun lien collé n'est ouvert sur le réseau. Le retour à la connexion reste explicite après reset ; aucun App Link Android automatique ni endpoint distinct de renvoi de vérification n'est ajouté.
+- Les pages métier utilisent désormais la palette violette commune pour navigation, actions, cartes et chargements. L'accueil affiche le logo ; les parcours et droits sont conservés. Cette harmonisation ne vaut pas une recette visuelle exhaustive de tous les écrans authentifiés.
 - Le logo existant est conservé dans `assets/images/orientia.png`. Sa variante `orientia_transparent.png` retire le fond carré pour l'interface. Aucun chapeau étudiant ne remplace la marque.
 - L'illustration `welcome_reference.png` a été recréée à partir de la maquette avec l'outil intégré imagegen : même étudiante, sweat lavande, tablette, campus, cartes Formations/Bourses/Recommandations ; pas de chapeau ni de cadre téléphone. Cette illustration n'est pas une photographie d'un établissement réel. Le fichier source original du logo reste intact.
 
 Provenance des assets : imagegen, mode édition à partir des fichiers fournis par le propriétaire. Logo : suppression du seul fond clair et des marges en conservant symbole, couleurs et nom. Illustration : extraction/recréation de la scène inférieure de la première maquette, fond lavande, conservation de la composition, retrait des chapeaux. Le « G » est l'asset officiel Google utilisé aussi dans le backoffice. Les rubans et boutons sont dessinés en Flutter. La génération d'illustration ne garantit pas une identité pixel à pixel avec la maquette ; le contrôle visuel sur appareil reste distinct des tests de composants.
+
+Les variantes `welcome_orientation.png` et `welcome_scholarships.png` ont été générées avec imagegen à partir du style de la première scène : étudiant construisant son parcours et étudiante préparant son dossier. Elles ne représentent ni établissement réel, ni promesse d'obtention d'une bourse.
+
+## Téléphones internationaux
+
+L'inscription et la modification du profil partagent `InternationalPhoneField` : tous les pays fournis par la bibliothèque, recherche, drapeau et indicatif ; Bénin favori et sélection initiale, sans restriction aux numéros béninois. Le numéro reste facultatif. Les métadonnées de `phone_form_field` 10.0.18 / `phone_numbers_parser` 9.0.29 valident le numéro national du pays choisi ; l'API reçoit la forme internationale E.164 (`+` suivi des chiffres). Les versions sont verrouillées pour la reproductibilité et doivent être maintenues selon les évolutions des plans nationaux.
+
+Le backend revalide et normalise avec Google libphonenumber 9.0.43. Il refuse les numéros nationaux ambigus sans indicatif et les extensions ; les anciens numéros stockés ne sont pas réécrits en masse. Au Bénin, le préfixe national `01` et dix chiffres sont requis depuis le 30 novembre 2024 : exemple de format `+229 01 XX XX XX XX`. [ARCEP Bénin](https://web.arcep.bj/passage-des-numero-a-10-chiffre/), [métadonnées Google](https://github.com/google/libphonenumber/releases), [standard E.164](https://www.itu.int/ITU-T/recommendations/rec.aspx?lang=en&rec=16273). Une validation de format ne prouve pas la propriété ou l'existence d'une ligne ; aucun SMS de vérification n'est annoncé.
 
 ## Architecture et fonctionnalités conservées
 
@@ -79,7 +89,21 @@ Un transport d'authentification distinct renouvelle une seule fois sur 401, mutu
 
 ## Google et contacts
 
-Client **Android** fourni : `1048361062873-9p9jrn2umec435bddqen2epn6fur93d8.apps.googleusercontent.com`. Il ne remplace pas un client OAuth Web. Le flux Google serveur/mobile n'est pas encore opérationnel : le bouton affiche cette indisponibilité, sans faux endpoint ni compte créé. Un client Web distinct, la validation OIDC serveur et les tests de liaison/permissions sont nécessaires avant activation.
+Client **Android** fourni : `1048361062873-9p9jrn2umec435bddqen2epn6fur93d8.apps.googleusercontent.com`. Il identifie le package et son certificat SHA-1 dans Google Cloud. Le bouton n'est plus un dialogue « en développement » : `google_sign_in` ouvre l'authentification Android, puis le jeton d'identité est envoyé par POST `/auth/google`. Une session n'est ouverte qu'après acceptation des vrais jetons Orientia par le backend. L'annulation et les erreurs ne connectent pas l'utilisateur. Les jetons bénéficient de la même politique de mémorisation et de renouvellement que la connexion par mot de passe.
+
+**Activation encore bloquée : l'identifiant public de type Application Web n'a pas été fourni.** Même pour Android, Google demande cet identifiant comme `serverClientId` pour émettre le jeton à destination du serveur ; ce n'est pas une demande de développer une application Web. [Documentation officielle du plugin Android](https://pub.dev/packages/google_sign_in_android), [vérification côté serveur Google](https://developers.google.com/identity/sign-in/android/backend-auth). Ne pas substituer l'identifiant Android et ne jamais intégrer de secret OAuth dans Flutter.
+
+Dans le même projet Google Cloud, créer un client **Application Web**, transmettre seulement son identifiant public, puis configurer **le même** `GOOGLE_WEB_CLIENT_ID` sur Render et à la compilation Flutter. Le backend livré doit avoir `GOOGLE_ENABLED=true` ; il reste désactivé par défaut. Aucun client secret ni URI de callback Web n'est requis pour ce flux natif ID-token. Les comptes existants avec le même e-mail ne sont pas liés automatiquement : utiliser leur mot de passe. Une nouvelle identité Google vérifiée crée uniquement un compte candidat.
+
+Après avoir reçu ce véritable identifiant, le placer dans `$env:GOOGLE_WEB_CLIENT_ID` puis :
+
+```powershell
+flutter run --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com --dart-define=GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID
+flutter build apk --debug --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com --dart-define=GOOGLE_WEB_CLIENT_ID=$env:GOOGLE_WEB_CLIENT_ID
+dart run tool/android_phone_command.dart
+```
+
+Le script lit aussi cette variable et ajoute l'option à la commande affichée ; `--google-web-client-id` permet une valeur explicite. Sans cette configuration, un message honnête propose la connexion par e-mail. La connexion Google réelle en production n'est pas déclarée validée.
 
 Contact public : **lestudioviral@gmail.com**. Alertes administratives côté serveur : **adminorientia@gmail.com**. Aucune clé SendGrid, aucun secret JWT ou identifiant PostgreSQL ne doit entrer dans Flutter.
 
@@ -91,7 +115,11 @@ flutter test
 flutter build apk --debug --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
 ```
 
-La campagne courante a obtenu **41 tests réussis** après refonte, dont introduction, grandes polices, session non persistée et protections de renouvellement. Analyse Flutter sans anomalie ; APK debug production compilé. Version 1.2.0 installée sur Samsung SM-A326B, écrans présentation/connexion/inscription observés et navigation publique exercée, sans saisie de compte, envoi de formulaire ou effacement des données. Un ajustement final du bouton retour conserve la hauteur utile du formulaire. Les captures temporaires de recette ne sont pas ajoutées au dépôt.
+La campagne 1.3.0 a obtenu **57 tests réussis** et `flutter analyze` sans anomalie. Elle couvre les trois présentations et leur boucle/pause/accessibilité, la recherche et sélection réelle d'un pays, plusieurs plans téléphoniques, la récupération et le reset (transports simulés), l'échange du jeton Google, l'annulation, le conflit de compte et la protection contre les doubles clics. Les protections de session/renouvellement et les parcours métier existants restent couverts.
+
+APK debug 1.3.0+4 compilé avec la vraie URL Render puis installé par `adb install -r` sur Samsung SM-A326B, sans effacement de données. Connexion et nouvelle récupération observées sur appareil, avec navigation publique vers le reset/vérification et message explicite de configuration Google absente. Aucun formulaire n'a été soumis en production. Le sélecteur de pays et les trois présentations ont été testés automatiquement ; cette campagne ne prétend pas avoir observé chaque écran sur appareil. Les captures temporaires restent hors Git.
+
+Backend associé : commit `162ff8de`, avec POST `/auth/google`, validation internationale et migration V84. Tests : 229 sur schéma PostgreSQL neuf puis 9 unitaires ciblés après deux régressions supplémentaires ; aucune base Render ni messagerie réelle utilisée. Push du code et activation/déploiement effectif sont distincts.
 
 Les tests utilisent des transports simulés et des données synthétiques. `test_live/backend_journey_test.dart` n'est lancé qu'avec la fixture `F33_LIVE_FIXTURE`, via le harnais backend isolé `MobileFlutterJourneyIT`. Les commandes `python tool/run_backend_journey.py` et `--full` nécessitent les configurations temporaires F1/F2 et un PostgreSQL **privé** déjà démarré. Ne jamais viser Render avec ce harnais. L'ancien résultat de ce parcours ne compte pas comme nouvelle exécution.
 
@@ -107,5 +135,6 @@ Aucun compte candidat de test autorisé n'est disponible en production. Les parc
 | Stabilisation mobile | Contrats et états de chargement/erreur/vide, 35 tests avant le travail de présentation ; aucune recette authentifiée de production revendiquée |
 | Présentation initiale 1.1.0 | Splash, illustration et formulaires blancs ; version installée et observée sur Samsung, ensuite désinstallée par le propriétaire |
 | Référence utilisateur 1.2.0 | Remplacement par la maquette violette fournie, logo sans carré, identité séparée, animations et mémorisation facultative ; documentation unifiée dans ce README |
+| Parcours 1.3.0 | Trois présentations illustrées automatiques/manuelles, récupération restylée et testée, téléphone international et validation serveur, authentification Google native raccordée sous configuration explicite ; harmonisation du thème métier |
 
 Les rapports supprimés couvraient F3.3, préservation/preuves, synchronisation, audit Render et validation mobile. Leurs détails historiques restent dans les commits, pas dans de nouveaux rapports concurrents.

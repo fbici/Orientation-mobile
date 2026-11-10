@@ -375,7 +375,9 @@ class _AuthActionButtonState extends State<AuthActionButton> {
 }
 
 class GoogleAuthButton extends StatelessWidget {
-  const GoogleAuthButton({super.key});
+  final VoidCallback? onPressed;
+  final bool busy;
+  const GoogleAuthButton({super.key, this.onPressed, this.busy = false});
   @override
   Widget build(BuildContext context) => AuthField(
       child: OutlinedButton(
@@ -385,20 +387,17 @@ class GoogleAuthButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               side: const BorderSide(color: Color(0xffded0ff)),
               shape: const StadiumBorder()),
-          onPressed: () => showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                      title: const Text('Connexion Google'),
-                      content: const Text(
-                          'La connexion Google est en cours de configuration. Utilisez votre adresse e-mail pour le moment.'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Compris'))
-                      ])),
+          onPressed: busy ? null : onPressed,
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Image.asset('assets/images/google-g.png',
-                height: 26, width: 26, semanticLabel: 'Google'),
+            if (busy)
+              const SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: authPurple))
+            else
+              Image.asset('assets/images/google-g.png',
+                  height: 26, width: 26, semanticLabel: 'Google'),
             const SizedBox(width: 16),
             const Flexible(
                 child: Text('Continuer avec Google',

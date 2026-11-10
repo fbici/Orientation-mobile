@@ -4,6 +4,7 @@ import '../../../core/data/orientation_repository.dart';
 import '../../../core/models/academic_models.dart';
 import '../../../core/widgets/academic_widgets.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/presentation/auth_widgets.dart';
 import '../../recommendations/presentation/recommendations_page.dart';
 import '../../universities/presentation/universities_page.dart';
 import '../../profile/presentation/profile_page.dart';
@@ -76,7 +77,7 @@ class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.apiClient});
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: const Text('Orientia')),
+      appBar: AppBar(title: const BrandLogo(height: 42)),
       body: ListView(padding: const EdgeInsets.all(20), children: [
         Container(
             padding: const EdgeInsets.all(24),
@@ -122,7 +123,7 @@ class DashboardPage extends StatelessWidget {
           (
             'Explorer les formations',
             'Sélectionner et comparer deux à six formations',
-            Icons.school_outlined,
+            Icons.menu_book_rounded,
             ProgramsPage(apiClient: apiClient)
           ),
           (

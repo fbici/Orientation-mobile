@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Brand Colors
-  static const Color primary = Color(0xFF2563EB);
-  static const Color primaryLight = Color(0xFF3B82F6);
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color primarySurface = Color(0xFFEFF6FF);
-  static const Color primaryMuted = Color(0xFFDBEAFE);
+  static const Color primary = Color(0xFF6900E8);
+  static const Color primaryLight = Color(0xFF9D20FF);
+  static const Color primaryDark = Color(0xFF39008A);
+  static const Color primarySurface = Color(0xFFF4EEFF);
+  static const Color primaryMuted = Color(0xFFE5D5FF);
 
   // Accent
   static const Color accent = Color(0xFF7C3AED);
@@ -23,7 +23,7 @@ class AppTheme {
   static const Color gray600 = Color(0xFF4B5563);
   static const Color gray700 = Color(0xFF374151);
   static const Color gray800 = Color(0xFF1F2937);
-  static const Color gray900 = Color(0xFF111827);
+  static const Color gray900 = Color(0xFF100C50);
 
   // Semantic
   static const Color success = Color(0xFF22C55E);
@@ -37,7 +37,7 @@ class AppTheme {
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+    colors: [Color(0xFF6900E8), Color(0xFF7C3AED)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -113,7 +113,7 @@ class AppTheme {
               letterSpacing: 0.5,
             ),
           ),
-      scaffoldBackgroundColor: gray50,
+      scaffoldBackgroundColor: const Color(0xFFF9F7FF),
       appBarTheme: const AppBarTheme(
         backgroundColor: white,
         foregroundColor: gray900,
@@ -126,13 +126,38 @@ class AppTheme {
           color: gray900,
         ),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFFFCFAFF),
+        indicatorColor: primaryMuted,
+        iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+            color: states.contains(WidgetState.selected) ? primary : gray500)),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+            fontSize: 11,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected) ? primary : gray600)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: white,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)))),
+      chipTheme: ChipThemeData(
+          backgroundColor: primarySurface,
+          side: const BorderSide(color: primaryMuted),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: primary),
       cardTheme: CardThemeData(
         elevation: 0,
         color: white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: gray200, width: 1),
+          side: const BorderSide(color: primaryMuted, width: 1),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

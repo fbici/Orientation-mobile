@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:phone_form_field/phone_form_field.dart';
 import 'features/launch/presentation/launch_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -86,6 +88,14 @@ class _OrientiaAppState extends State<OrientiaApp> {
             ? 'account-${api.user?['id']}-${api.sessionEpoch}'
             : 'signed-out'),
         title: 'Orientia',
+        locale: const Locale('fr'),
+        supportedLocales: const [Locale('fr'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          ...PhoneFieldLocalization.delegates,
+        ],
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: !launchComplete || introSeen == null

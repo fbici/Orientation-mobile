@@ -195,6 +195,22 @@ class ApiClient extends ChangeNotifier {
     return response;
   }
 
+  Future<Response<dynamic>> loginWithGoogle(String idToken,
+      {bool rememberMe = true}) async {
+    if (idToken.isEmpty) {
+      throw const FormatException('Google ID token required');
+    }
+    _resetMemory();
+    logoutUnconfirmed = false;
+    _persistSession = rememberMe;
+    final epoch = _epoch;
+    await _serial(store.clear);
+    final response =
+        await _auth.post<dynamic>('/auth/google', data: {'idToken': idToken});
+    await _accept(object(response.data), epoch);
+    return response;
+  }
+
   Future<bool> _refresh(int epoch) {
     return _refreshing ??= _performRefresh(epoch).whenComplete(() {
       if (epoch == _epoch) _refreshing = null;

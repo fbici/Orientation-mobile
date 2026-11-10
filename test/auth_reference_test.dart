@@ -40,7 +40,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     api.dispose();
   });
-  testWidgets('registration and Google notice remain usable with large text',
+  testWidgets('registration and Google button remain usable with large text',
       (tester) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
@@ -55,12 +55,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Créer mon compte'));
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: GoogleAuthButton())));
+    var continuedWithGoogle = false;
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: GoogleAuthButton(
+                onPressed: () => continuedWithGoogle = true))));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continuer avec Google'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('en cours de configuration'), findsOneWidget);
+    expect(continuedWithGoogle, isTrue);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     api.dispose();
