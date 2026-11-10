@@ -125,6 +125,8 @@ class ApiClient extends ChangeNotifier {
     }
   }
 
+  bool _persistSession = true;
+
   Future<void> _accept(Json data, int epoch) async {
     if (data['accessToken'] is! String ||
         data['refreshToken'] is! String ||
@@ -132,7 +134,13 @@ class ApiClient extends ChangeNotifier {
       throw const FormatException('Session invalide');
     }
     await _serial(() async {
-      if (epoch == _epoch) await store.write(jsonEncode(data));
+      if (epoch == _epoch) {
+        if (_persistSession) {
+          await store.write(jsonEncode(data));
+        } else {
+          await store.clear();
+        }
+      }
     });
     if (epoch != _epoch) throw StateError('Session changée');
     _session = data;
@@ -174,9 +182,11 @@ class ApiClient extends ChangeNotifier {
     }
   }
 
-  Future<Response<dynamic>> login(String email, String password) async {
+  Future<Response<dynamic>> login(String email, String password,
+      {bool rememberMe = true}) async {
     _resetMemory();
     logoutUnconfirmed = false;
+    _persistSession = rememberMe;
     final epoch = _epoch;
     await _serial(store.clear);
     final response = await _auth.post<dynamic>('/auth/login',

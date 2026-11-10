@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'features/launch/presentation/launch_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'core/theme/app_theme.dart';
@@ -18,13 +20,40 @@ class OrientiaApp extends StatefulWidget {
 class _OrientiaAppState extends State<OrientiaApp> {
   late final api = widget.apiClient ?? ApiClient();
   bool register = false;
+  bool launchComplete = false;
+  bool? introSeen;
+  bool completingIntro = false;
+  static const introKey = 'orientia_intro_seen_v1';
   int observedEpoch = -1;
   @override
   void initState() {
     super.initState();
     api.addListener(changed);
+    unawaited(loadIntroduction());
     unawaited(cleanup());
     Future.microtask(api.restore);
+  }
+
+  Future<void> loadIntroduction() async {
+    bool seen = false;
+    try {
+      seen = (await SharedPreferences.getInstance()).getBool(introKey) ?? false;
+    } catch (_) {/* Preferences must not block the presentation. */}
+    if (mounted) setState(() => introSeen = seen);
+  }
+
+  Future<void> completeIntroduction() async {
+    if (completingIntro) return;
+    completingIntro = true;
+    try {
+      await (await SharedPreferences.getInstance()).setBool(introKey, true);
+    } catch (_) {/* Preferences must not block access to the application. */}
+    if (mounted) {
+      setState(() {
+        introSeen = true;
+        completingIntro = false;
+      });
+    }
   }
 
   Future<void> cleanup() async {
@@ -59,49 +88,62 @@ class _OrientiaAppState extends State<OrientiaApp> {
         title: 'Orientia',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: switch (api.status) {
-          SessionStatus.restoring => const Scaffold(
-              body: Center(
-                  child: CircularProgressIndicator(
-                      semanticsLabel: 'Vérification de la session'))),
-          SessionStatus.unavailable => Scaffold(
-              body: SafeArea(
-                  child: Center(
-                      child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.cloud_off, size: 48),
-                            const Text(
-                                'Session à vérifier. Le serveur est actuellement inaccessible. Vos données privées restent verrouillées.'),
-                            FilledButton(
-                                onPressed: api.restore,
-                                child: const Text('Réessayer')),
-                            TextButton(
-                                onPressed: () async {
-                                  try {
-                                    await api.logout();
-                                  } catch (_) {}
-                                },
-                                child:
-                                    const Text('Supprimer la session locale')),
-                          ]))))),
-          SessionStatus.authenticated => HomePage(
-              apiClient: api,
-              onLogout: () {
-                if (mounted) setState(() => register = false);
-              }),
-          SessionStatus.signedOut => register
-              ? RegisterPage(
-                  apiClient: api,
-                  onRegisterSuccess: () => setState(() => register = false),
-                  onBackToLogin: () => setState(() => register = false))
-              : LoginPage(
-                  apiClient: api,
-                  onLoginSuccess: () {
-                    if (mounted) setState(() => register = false);
+        home: !launchComplete || introSeen == null
+            ? LaunchSplash(onFinished: () {
+                if (mounted && !launchComplete) {
+                  setState(() => launchComplete = true);
+                }
+              })
+            : !introSeen!
+                ? WelcomePage(onContinue: completeIntroduction)
+                : switch (api.status) {
+                    SessionStatus.restoring => const Scaffold(
+                        body: Center(
+                            child: CircularProgressIndicator(
+                                semanticsLabel: 'Vérification de la session'))),
+                    SessionStatus.unavailable => Scaffold(
+                        body: SafeArea(
+                            child: Center(
+                                child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.cloud_off, size: 48),
+                                          const Text(
+                                              'Session à vérifier. Le serveur est actuellement inaccessible. Vos données privées restent verrouillées.'),
+                                          FilledButton(
+                                              onPressed: api.restore,
+                                              child: const Text('Réessayer')),
+                                          TextButton(
+                                              onPressed: () async {
+                                                try {
+                                                  await api.logout();
+                                                } catch (_) {}
+                                              },
+                                              child: const Text(
+                                                  'Supprimer la session locale')),
+                                        ]))))),
+                    SessionStatus.authenticated => HomePage(
+                        apiClient: api,
+                        onLogout: () {
+                          if (mounted) setState(() => register = false);
+                        }),
+                    SessionStatus.signedOut => register
+                        ? RegisterPage(
+                            apiClient: api,
+                            onRegisterSuccess: () =>
+                                setState(() => register = false),
+                            onBackToLogin: () =>
+                                setState(() => register = false))
+                        : LoginPage(
+                            apiClient: api,
+                            onIntroduction: () =>
+                                setState(() => introSeen = false),
+                            onLoginSuccess: () {
+                              if (mounted) setState(() => register = false);
+                            },
+                            onRegister: () => setState(() => register = true)),
                   },
-                  onRegister: () => setState(() => register = true)),
-        },
       );
 }

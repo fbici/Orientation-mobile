@@ -6,6 +6,24 @@ import 'package:orientia/core/network/api_client.dart';
 import 'support/fake_transport.dart';
 
 void main() {
+  test('unremembered login and refresh never persist the token pair', () async {
+    final store = MemorySessions();
+    var calls = 0;
+    final api = clientFor((r, s) {
+      calls++;
+      return calls == 1
+          ? jsonResponse({}, 401)
+          : jsonResponse(sessionData()['user']);
+    }, store: store, auth: (r, s) => jsonResponse(sessionData()));
+    await api.login('candidate@example.test', 'synthetic-password',
+        rememberMe: false);
+    expect(api.status, SessionStatus.authenticated);
+    expect(store.value, isNull);
+    await api.getMe();
+    expect(store.value, isNull);
+    expect(api.status, SessionStatus.authenticated);
+    api.dispose();
+  });
   test('successful password change clears the locally revoked session',
       () async {
     final store = MemorySessions();

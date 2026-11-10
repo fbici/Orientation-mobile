@@ -28,7 +28,10 @@ class _RegisterPageState extends State<RegisterPage> {
     ])
       k: TextEditingController()
   };
-  bool busy = false, consent = false, accepted = false;
+  bool busy = false,
+      accepted = false,
+      showPassword = false,
+      showConfirmation = false;
   Object? error;
   @override
   void dispose() {
@@ -39,7 +42,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> register() async {
-    if (form.currentState?.validate() != true || !consent) return;
+    if (busy || form.currentState?.validate() != true) return;
     setState(() {
       busy = true;
       error = null;
@@ -58,70 +61,197 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  int get passwordScore {
+    final value = fields['password']!.text;
+    if (value.isEmpty) return 0;
+    return [
+      value.length >= 12,
+      RegExp('[A-Z]').hasMatch(value),
+      RegExp('[a-z]').hasMatch(value),
+      RegExp('[0-9]').hasMatch(value),
+      RegExp(r'[^A-Za-z0-9]').hasMatch(value)
+    ].where((v) => v).length;
+  }
+
+  Widget field(String name, String label, IconData icon) {
+    final secret = name == 'password' || name == 'confirmation';
+    return AuthField(
+        child: TextFormField(
+      key: ValueKey('register-$name'),
+      controller: fields[name],
+      obscureText:
+          secret && !(name == 'password' ? showPassword : showConfirmation),
+      autofillHints: switch (name) {
+        'firstName' => [AutofillHints.givenName],
+        'lastName' => [AutofillHints.familyName],
+        'email' => [AutofillHints.email],
+        'phone' => [AutofillHints.telephoneNumber],
+        'password' || 'confirmation' => [AutofillHints.newPassword],
+        _ => null
+      },
+      keyboardType: name == 'email'
+          ? TextInputType.emailAddress
+          : name == 'phone'
+              ? TextInputType.phone
+              : TextInputType.text,
+      textInputAction:
+          name == 'confirmation' ? TextInputAction.done : TextInputAction.next,
+      onChanged: name == 'password' ? (_) => setState(() {}) : null,
+      decoration: InputDecoration(
+          hintText: label,
+          prefixIcon: Icon(icon, size: 22),
+          suffixIcon: secret
+              ? IconButton(
+                  onPressed: () => setState(() {
+                        if (name == 'password') {
+                          showPassword = !showPassword;
+                        } else {
+                          showConfirmation = !showConfirmation;
+                        }
+                      }),
+                  tooltip:
+                      (name == 'password' ? showPassword : showConfirmation)
+                          ? 'Masquer le mot de passe'
+                          : 'Afficher le mot de passe',
+                  icon: Icon(
+                      (name == 'password' ? showPassword : showConfirmation)
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 22))
+              : null),
+      validator: (value) {
+        if (name == 'email') return emailValidator(value);
+        if (name == 'phone') return null;
+        if (value == null || value.trim().isEmpty) return 'Champ requis.';
+        if (name == 'password' &&
+            (value.length < 12 || utf8.encode(value).length > 72)) {
+          return '12 caractères minimum, 72 octets maximum.';
+        }
+        if (name == 'confirmation' && value != fields['password']!.text) {
+          return 'Les mots de passe diffèrent.';
+        }
+        return null;
+      },
+    ));
+  }
+
   @override
-  Widget build(BuildContext context) =>
-      AuthShell(title: 'Créer mon compte candidat', children: [
-        if (accepted) ...[
-          const Text(
-              'Demande reçue. Si votre compte est éligible, consultez votre email pour la vérification. Aucune connexion n’est effectuée automatiquement.'),
-          FilledButton(
-              onPressed: widget.onRegisterSuccess,
-              child: const Text('Aller à la connexion')),
-        ] else ...[
-          Form(
-              key: form,
-              child: Column(children: [
-                for (final (name, label) in [
-                  ('firstName', 'Prénom'),
-                  ('lastName', 'Nom'),
-                  ('email', 'Email'),
-                  ('phone', 'Téléphone — facultatif'),
-                  ('password', 'Mot de passe — 12 caractères minimum'),
-                  ('confirmation', 'Confirmer le mot de passe')
-                ])
-                  Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: TextFormField(
-                          controller: fields[name],
-                          obscureText:
-                              ['password', 'confirmation'].contains(name),
-                          keyboardType: name == 'email'
-                              ? TextInputType.emailAddress
-                              : name == 'phone'
-                                  ? TextInputType.phone
-                                  : TextInputType.text,
-                          decoration: InputDecoration(labelText: label),
-                          validator: (v) {
-                            if (name == 'email') return emailValidator(v);
-                            if (name == 'phone') return null;
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Champ requis.';
-                            }
-                            if (name == 'password' &&
-                                (v.length < 12 || utf8.encode(v).length > 72)) {
-                              return '12 caractères minimum, 72 octets maximum.';
-                            }
-                            if (name == 'confirmation' &&
-                                v != fields['password']!.text) {
-                              return 'Les mots de passe diffèrent.';
-                            }
-                            return null;
-                          })),
-              ])),
-          CheckboxListTile(
-              value: consent,
-              onChanged: (v) => setState(() => consent = v ?? false),
-              title: const Text('Je souhaite créer mon compte candidat.')),
-          const Text(
-              'Votre pays et vos informations scolaires seront renseignés dans le profil après connexion.'),
-          if (error != null) AuthError(error!),
-          if (busy) const LinearProgressIndicator(),
-          FilledButton(
-              onPressed: busy || !consent ? null : register,
-              child: const Text('Demander mon inscription')),
-          TextButton(
-              onPressed: busy ? null : widget.onBackToLogin,
-              child: const Text('Déjà inscrit ? Se connecter')),
-        ],
-      ]);
+  Widget build(BuildContext context) => AuthShell(
+          title: 'Créer un compte',
+          subtitle:
+              'Rejoignez Orientia et construisez\nvotre avenir universitaire',
+          onBack: busy ? null : widget.onBackToLogin,
+          children: [
+            if (accepted) ...[
+              const Icon(Icons.mark_email_read_outlined,
+                  color: authPurple, size: 46),
+              const SizedBox(height: 16),
+              const Text(
+                  'Demande reçue. Si votre compte est éligible, consultez votre email pour la vérification. Aucune connexion n’est effectuée automatiquement.',
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              AuthActionButton(
+                  label: 'Aller à la connexion',
+                  onPressed: widget.onRegisterSuccess),
+            ] else ...[
+              Form(
+                  key: form,
+                  child: AutofillGroup(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                        LayoutBuilder(builder: (context, bounds) {
+                          final last = field(
+                              'lastName', 'Nom', Icons.person_outline_rounded);
+                          final first = field('firstName', 'Prénom',
+                              Icons.person_outline_rounded);
+                          if (bounds.maxWidth < 300 ||
+                              MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+                            return Column(children: [
+                              last,
+                              const SizedBox(height: 10),
+                              first
+                            ]);
+                          }
+                          return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: last),
+                                const SizedBox(width: 10),
+                                Expanded(child: first)
+                              ]);
+                        }),
+                        const SizedBox(height: 10),
+                        field('email', 'Adresse e-mail',
+                            Icons.mail_outline_rounded),
+                        const SizedBox(height: 10),
+                        field('phone', '🇧🇯 +229   Téléphone (facultatif)',
+                            Icons.phone_android_rounded),
+                        const SizedBox(height: 10),
+                        field('password', 'Mot de passe',
+                            Icons.lock_outline_rounded),
+                        const SizedBox(height: 10),
+                        field('confirmation', 'Confirmer le mot de passe',
+                            Icons.lock_outline_rounded),
+                      ]))),
+              const SizedBox(height: 18),
+              Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    SizedBox(
+                        width: 170,
+                        child: Row(
+                            children: List.generate(
+                                5,
+                                (i) => Expanded(
+                                    child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 220),
+                                        height: 6,
+                                        margin: const EdgeInsets.only(right: 4),
+                                        decoration: BoxDecoration(
+                                            color: passwordScore > i
+                                                ? const Color(0xffba26fa)
+                                                : const Color(0xffded8f4),
+                                            borderRadius:
+                                                BorderRadius.circular(4))))))),
+                    Text(
+                        passwordScore == 5
+                            ? 'Mot de passe fort ✓'
+                            : fields['password']!.text.isEmpty
+                                ? '12 caractères minimum'
+                                : 'Mot de passe à renforcer',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: passwordScore == 5
+                                ? const Color(0xff008934)
+                                : const Color(0xff686080))),
+                  ]),
+              if (error != null) AuthError(error!),
+              const SizedBox(height: 30),
+              AuthActionButton(
+                  label: 'Créer mon compte',
+                  pendingLabel: 'Création en cours…',
+                  leading: Icons.person_add_alt_1_outlined,
+                  busy: busy,
+                  onPressed: register),
+              const SizedBox(height: 28),
+              const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.verified_user_outlined, color: authPurple, size: 24),
+                SizedBox(width: 12),
+                Flexible(
+                    child: Text(
+                        'Vos informations sont sécurisées\net restent confidentielles.',
+                        style: TextStyle(fontSize: 12, color: authInk))),
+              ]),
+              const SizedBox(height: 10),
+              TextButton(
+                  onPressed: busy ? null : widget.onBackToLogin,
+                  child: const Text('Déjà inscrit ? Se connecter',
+                      style: TextStyle(color: authPurple, fontSize: 12))),
+            ],
+          ]);
 }

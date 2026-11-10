@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orientia/app.dart';
 import 'package:orientia/core/models/academic_models.dart';
 import 'package:orientia/features/documents/presentation/documents_page.dart';
@@ -34,6 +35,8 @@ ResponseBody publicFixture(RequestOptions r) {
 }
 
 void main() {
+  setUp(() =>
+      SharedPreferences.setMockInitialValues({'orientia_intro_seen_v1': true}));
   testWidgets(
       'documentary chat facts link to the catalogue without an eligibility verdict',
       (tester) async {
