@@ -17,7 +17,8 @@ class ApiFailure implements Exception {
             'Le service de vérification par e-mail est momentanément indisponible. Votre demande et l’envoi du message n’ont pas pu être confirmés. Réessayez plus tard.',
             503);
       }
-      final registration = error.requestOptions.path == '/auth/register';
+      final registration = ['/auth/register', '/auth/mobile/register']
+          .contains(error.requestOptions.path);
       if (registration && status != null && status >= 200 && status < 300) {
         return ApiFailure(
             'Le serveur n’a pas confirmé votre demande d’inscription. Consultez vos e-mails avant de réessayer.',
@@ -46,6 +47,10 @@ class ApiFailure implements Exception {
       if (code == 'INVALID_PHONE') {
         return const ApiFailure(
             'Numéro de téléphone invalide. Vérifiez le pays et le numéro saisi.');
+      }
+      if (code == 'INVALID_VERIFICATION_CODE') {
+        return const ApiFailure(
+            'Code invalide, expiré ou nombre d’essais dépassé. Vérifiez les six chiffres reçus. Après dix minutes, recommencez votre demande de code.');
       }
       if (reason is String &&
           reason.startsWith('Numéro de téléphone invalide.')) {

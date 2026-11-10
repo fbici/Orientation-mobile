@@ -47,7 +47,7 @@ void main() {
     final store = MemorySessions();
     final api = clientFor((r, s) => jsonResponse({}), auth: (r, s) {
       calls++;
-      expect(r.path, '/auth/register');
+      expect(r.path, '/auth/mobile/register');
       return jsonResponse({
         'message': 'Email delivery unavailable; no delivery is confirmed',
         'internal': 'private-provider-detail'
@@ -198,13 +198,14 @@ void main() {
     expectUnconfirmed(api, store, successes);
 
     pending.complete(jsonResponse({
+      'challengeId': '11111111-1111-4111-8111-111111111111',
       'message': 'Registration request accepted. If eligible, check your email.'
     }, 202));
     await tester.pumpAndSettle();
     expect(calls, 1);
     expect(api.user, isNull);
     expect(store.writes, 0);
-    expect(find.text('Aller à la connexion'), findsOneWidget);
+    expect(find.byKey(const ValueKey('verification-code')), findsOneWidget);
     expect(successes, 0);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

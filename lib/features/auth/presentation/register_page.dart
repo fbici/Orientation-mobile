@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import 'auth_widgets.dart';
+import 'verification_code_page.dart';
 import '../../../core/widgets/international_phone_field.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -30,11 +31,9 @@ class _RegisterPageState extends State<RegisterPage> {
     ])
       k: TextEditingController()
   };
-  bool busy = false,
-      accepted = false,
-      showPassword = false,
-      showConfirmation = false;
+  bool busy = false, showPassword = false, showConfirmation = false;
   Object? error;
+  String? challengeId;
   @override
   void dispose() {
     phone.dispose();
@@ -52,13 +51,19 @@ class _RegisterPageState extends State<RegisterPage> {
       error = null;
     });
     try {
-      await widget.apiClient.register({
+      final response = await widget.apiClient.registerMobile({
         for (final k in ['firstName', 'lastName', 'email'])
           k: fields[k]!.text.trim(),
         'phone': normalizedPhone(phone.value),
         'password': fields['password']!.text
       });
-      if (mounted) setState(() => accepted = true);
+      if (mounted) {
+        setState(() {
+          challengeId = response.data['challengeId'] as String;
+          fields['password']!.clear();
+          fields['confirmation']!.clear();
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => error = e);
     } finally {
@@ -144,24 +149,19 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   @override
-  Widget build(BuildContext context) => AuthShell(
+  Widget build(BuildContext context) => challengeId != null
+      ? VerificationCodePage(
+          apiClient: widget.apiClient,
+          challengeId: challengeId!,
+          email: fields['email']!.text.trim(),
+          onVerified: widget.onRegisterSuccess,
+          onBack: () => setState(() => challengeId = null))
+      : AuthShell(
           title: 'Créer un compte',
           subtitle:
               'Rejoignez Orientia et construisez\nvotre avenir universitaire',
           onBack: busy ? null : widget.onBackToLogin,
           children: [
-            if (accepted) ...[
-              const Icon(Icons.mark_email_read_outlined,
-                  color: authPurple, size: 46),
-              const SizedBox(height: 16),
-              const Text(
-                  'Demande reçue. Si votre compte est éligible, consultez votre email pour la vérification. Aucune connexion n’est effectuée automatiquement.',
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              AuthActionButton(
-                  label: 'Aller à la connexion',
-                  onPressed: widget.onRegisterSuccess),
-            ] else ...[
               Form(
                   key: form,
                   child: AutofillGroup(
@@ -261,6 +261,5 @@ class _RegisterPageState extends State<RegisterPage> {
                   onPressed: busy ? null : widget.onBackToLogin,
                   child: const Text('Déjà inscrit ? Se connecter',
                       style: TextStyle(color: authPurple, fontSize: 12))),
-            ],
-          ]);
+            ]);
 }

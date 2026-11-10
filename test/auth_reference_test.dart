@@ -10,9 +10,10 @@ void main() {
       (tester) async {
     Map<String, dynamic>? sent;
     final api = clientFor((r, s) => jsonResponse({}), auth: (r, s) {
-      expect(r.path, '/auth/register');
+      expect(r.path, '/auth/mobile/register');
       sent = Map<String, dynamic>.from(r.data as Map);
       return jsonResponse({
+        'challengeId': '11111111-1111-4111-8111-111111111111',
         'message':
             'Registration request accepted. If eligible, check your email.'
       }, 202);
@@ -38,7 +39,7 @@ void main() {
     expect(sent?['firstName'], 'Prénom');
     expect(sent?.containsKey('confirmation'), isFalse);
     expect(api.user, isNull);
-    expect(find.text('Aller à la connexion'), findsOneWidget);
+    expect(find.byKey(const ValueKey('verification-code')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     api.dispose();

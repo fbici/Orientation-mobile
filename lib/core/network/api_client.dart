@@ -310,6 +310,53 @@ class ApiClient extends ChangeNotifier {
     return response;
   }
 
+  Future<Response<dynamic>> registerMobile(Json data) async {
+    final response =
+        await _auth.post<dynamic>('/auth/mobile/register', data: data);
+    final body = response.data;
+    if (response.statusCode != 202 ||
+        body is! Map ||
+        body['challengeId'] is! String ||
+        !RegExp(r'^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$')
+            .hasMatch(body['challengeId'] as String) ||
+        body['message'] is! String ||
+        (body['message'] as String).trim().isEmpty) {
+      throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          message: 'Registration acknowledgement was not recognized');
+    }
+    return response;
+  }
+
+  Future<void> verifyEmailCode(String challengeId, String code) async {
+    final response = await _auth.post<dynamic>('/auth/mobile/verify-email',
+        data: {'challengeId': challengeId, 'code': code});
+    if (response.statusCode != 200 ||
+        response.data is! Map ||
+        response.data['message'] is! String ||
+        (response.data['message'] as String).trim().isEmpty) {
+      throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse);
+    }
+  }
+
+  Future<void> resendVerificationCode(String challengeId) async {
+    final response = await _auth.post<dynamic>('/auth/mobile/resend-code',
+        data: {'challengeId': challengeId});
+    if (response.statusCode != 202 ||
+        response.data is! Map ||
+        response.data['challengeId'] != challengeId) {
+      throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse);
+    }
+  }
+
   Future<Response<dynamic>> forgotPassword(String email) =>
       _auth.post('/auth/forgot-password', data: {'email': email});
   Future<Response<dynamic>> resetPassword(String token, String password) =>

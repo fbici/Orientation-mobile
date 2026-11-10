@@ -27,10 +27,8 @@ class _LaunchSplashState extends State<LaunchSplash>
   }
 
   Future<void> start() async {
-    // Decode the real logo before the timeline so slow asset loading cannot
-    // consume its appearance and readable hold on a physical device.
-    await precacheImage(
-        const AssetImage('assets/images/orientia_transparent.png'), context);
+    // Start on the first Flutter frame. Never add a second static logo stage
+    // while decoding the image or waiting for network/session restoration.
     if (!mounted) return;
     controller.forward().whenComplete(() {
       if (mounted) widget.onFinished();

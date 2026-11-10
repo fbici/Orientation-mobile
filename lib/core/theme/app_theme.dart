@@ -115,7 +115,7 @@ class AppTheme {
           ),
       scaffoldBackgroundColor: const Color(0xFFF9F7FF),
       appBarTheme: const AppBarTheme(
-        backgroundColor: white,
+        backgroundColor: Color(0xFFF9F7FF),
         foregroundColor: gray900,
         elevation: 0,
         centerTitle: false,
@@ -145,6 +145,15 @@ class AppTheme {
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)))),
+      listTileTheme: const ListTileThemeData(
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          iconColor: primary,
+          titleTextStyle: TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700, color: gray900),
+          subtitleTextStyle:
+              TextStyle(fontSize: 13, height: 1.5, color: gray600)),
+      expansionTileTheme:
+          const ExpansionTileThemeData(iconColor: primary, textColor: gray900),
       chipTheme: ChipThemeData(
           backgroundColor: primarySurface,
           side: const BorderSide(color: primaryMuted),
@@ -156,7 +165,7 @@ class AppTheme {
         color: white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           side: const BorderSide(color: primaryMuted, width: 1),
         ),
       ),

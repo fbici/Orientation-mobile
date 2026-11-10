@@ -78,13 +78,15 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(title: const BrandLogo(height: 42)),
-      body: ListView(padding: const EdgeInsets.all(20), children: [
+      body: ListView(padding: const EdgeInsets.fromLTRB(20,12,20,28), children: [
+        const Padding(padding: EdgeInsets.only(bottom:16),child: Text('Votre avenir, à votre rythme',
+          style:TextStyle(fontSize:14,fontWeight:FontWeight.w600,color:AppTheme.gray600))),
         Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
                 gradient: AppTheme.primaryGradient,
                 borderRadius: BorderRadius.circular(20)),
-            child:
+            child: Row(children: [Expanded(child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Bienvenue ${text(apiClient.user?['firstName'], '')}',
                   style: const TextStyle(
@@ -93,14 +95,31 @@ class DashboardPage extends StatelessWidget {
                       fontWeight: FontWeight.bold)),
               const Text(
                   'Comprendre vos possibilités, préparer votre parcours.',
-                  style: TextStyle(color: Colors.white, fontSize: 16)),
+                  style: TextStyle(color: Colors.white, fontSize: 15,height:1.5)),
+            ])),
+            if(MediaQuery.sizeOf(context).width > 370 && MediaQuery.textScalerOf(context).scale(1)<1.4)
+              Image.asset('assets/images/welcome_orientation.png',height:135,width:110,fit:BoxFit.contain,excludeFromSemantics:true),
             ])),
         const SizedBox(height: 16),
         AsyncContent<AcademicProfileView>(
             load: OrientationRepository(apiClient).profile,
-            builder: (p, reload) => Notice(p.confirmed
-                ? 'Votre profil est confirmé personnellement. Vous pouvez demander un calcul.'
-                : 'Commencez par votre profil, puis ajoutez votre relevé. La confirmation personnelle n’est pas une certification.')),
+            builder: (p, reload) => Card(child: Padding(padding:const EdgeInsets.all(20),
+              child: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Row(children:[Icon(p.confirmed?Icons.verified_outlined:Icons.route_rounded,color:AppTheme.primary),
+                  const SizedBox(width:10),const Expanded(child:Text('Votre prochaine étape',style:TextStyle(fontSize:17,fontWeight:FontWeight.w700)))]),
+                const SizedBox(height:12),
+                Text(p.confirmed?'Explorez vos recommandations':'Complétez votre profil académique',style:const TextStyle(fontWeight:FontWeight.w600,color:AppTheme.gray900)),
+                const SizedBox(height:6),
+                Text(p.confirmed?'Votre profil est confirmé. Lancez un calcul pour comprendre vos possibilités.':'Ajoutez vos informations et votre relevé pour préparer un choix éclairé.'),
+                const SizedBox(height:14),
+                FilledButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>p.confirmed?RecommendationsPage(apiClient:apiClient):AcademicProfilePage(apiClient:apiClient))),
+                  icon:const Icon(Icons.arrow_forward_rounded),label:Text(p.confirmed?'Voir mes possibilités':'Compléter mon profil')),
+              ])))),
+        const SizedBox(height:24),
+        const Text('Préparez votre parcours',style:TextStyle(fontSize:21,fontWeight:FontWeight.w800,color:AppTheme.gray900)),
+        const SizedBox(height:6),
+        const Text('Vos outils d’orientation, réunis au même endroit.'),
+        const SizedBox(height:16),
         for (final action in <(String, String, IconData, Widget)>[
           (
             'Mon profil académique',
@@ -147,7 +166,9 @@ class DashboardPage extends StatelessWidget {
         ])
           Card(
               child: ListTile(
-                  leading: Icon(action.$3, color: AppTheme.primary),
+                  leading: Container(width:46,height:46,
+                    decoration:BoxDecoration(color:AppTheme.primarySurface,borderRadius:BorderRadius.circular(15)),
+                    child:Icon(action.$3, color: AppTheme.primary)),
                   title: Text(action.$1),
                   subtitle: Text(action.$2),
                   trailing: const Icon(Icons.chevron_right),

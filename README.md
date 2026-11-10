@@ -6,7 +6,7 @@ Ce README est la documentation de référence du projet. Toute modification doit
 
 ## Démarrage et Android
 
-Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.3.2+6**. Package : **`com.orientia.orientia`**. Recette avec Flutter 3.38.4 / Dart 3.10.3 ; aucun remplacement du projet ou de son SDK.
+Flutter/Dart selon `pubspec.yaml` et `pubspec.lock`, Android SDK, JDK fourni par Android Studio. Version de cette interface : **1.4.0+7**. Package : **`com.orientia.orientia`**. Recette avec Flutter 3.38.4 / Dart 3.10.3 ; aucun remplacement du projet ou de son SDK.
 
 ```powershell
 flutter pub get
@@ -44,10 +44,10 @@ Une URL explicite est prioritaire. Aucun préfixe n'est ajouté automatiquement.
 
 La référence retenue le 10 novembre est la maquette utilisateur « Interface mobile Orientia en trois écrans ». Elle remplace la direction blanche/bleue précédente : fond lavande clair, rubans violets, texte bleu nuit, champs avec icônes et ombres légères, boutons violets dégradés. Les textes et contrôles restent natifs Flutter, et les formulaires sont défilables sur petit écran ou avec clavier/grandes polices.
 
-- Démarrage : fond lavande et vrai logo transparent dès le splash natif Android (jour/nuit et Android 12+), puis séquence Flutter de **3,2 secondes** : apparition, tracés discrets, mise à l’échelle et maintien lisible du logo avant la présentation. L’image est préchargée avant la timeline. Animations réduites/navigation accessible : logo statique pendant **700 ms**. Le démarrage à froid rejoue cette séquence ; une reprise depuis Google, le clavier ou la caméra ne redémarre pas le parcours. La restauration de session ne recrée pas le splash.
+- Démarrage : le logo statique du splash natif a été retiré pour éviter deux présentations successives. Android prépare Flutter sur le seul fond de marque ; la séquence animée de **3,2 secondes** démarre dès la première frame Flutter, sans attente de décodage, de réseau ou de restauration de session. Le délai de préparation du processus Android dépend encore du téléphone et du mode de compilation ; une animation Flutter ne peut pas précéder le démarrage de son moteur. Animations réduites/navigation accessible : logo statique pendant **700 ms**. Le démarrage à froid rejoue cette séquence ; une reprise depuis Google, le clavier ou la caméra ne redémarre pas le parcours. La restauration de session ne recrée pas le splash.
 - Première ouverture : trois présentations illustrées — découverte, choix du parcours, bourses. Rotation toutes les 7 secondes, balayage manuel et points cliquables, commande de pause/reprise. La rotation s'arrête hors premier plan ou si la réduction des animations/navigation accessible est activée ; la navigation manuelle reste disponible. **Commencer** et **Passer** mènent à la même étape suivante. Une préférence non sensible `orientia_intro_seen_v1` évite de répéter cette présentation. **Découvrir Orientia** permet de la revoir depuis la connexion.
 - Connexion : e-mail, mot de passe avec œil, mémorisation facultative, récupération, Google, inscription. Entrées progressives, pression du bouton et chargement réel ; les animations d'entrée respectent la réduction des animations système.
-- Inscription : **Nom et Prénom distincts**, e-mail, téléphone facultatif, mot de passe et confirmation avec visibilités indépendantes. Les noms sont envoyés séparément (`lastName`, `firstName`). Mot de passe : 12 caractères minimum et 72 octets UTF-8 maximum ; la jauge est indicative, calculée à partir de la saisie. Une demande acceptée n'ouvre pas une session et ne prouve pas la livraison d'un e-mail.
+- Inscription : **Nom et Prénom distincts**, e-mail, téléphone facultatif, mot de passe et confirmation avec visibilités indépendantes. Les noms sont envoyés séparément (`lastName`, `firstName`). Mot de passe : 12 caractères minimum et 72 octets UTF-8 maximum ; la jauge est indicative, calculée à partir de la saisie. Une demande mobile acceptée ouvre directement l’écran de saisie du **code à six chiffres**, sans navigateur. Elle n’ouvre pas une session et ne prouve pas la livraison d’un e-mail.
 - Récupération : même présentation lavande et marque que les formulaires. Demande par e-mail, saisie du lien reçu ou de son jeton sécurisé de 43 caractères, nouveau mot de passe confirmé, vérification d'adresse. Les succès ne prétendent pas qu'un e-mail a été livré ; les liens expirés/utilisés sont expliqués. Aucun lien collé n'est ouvert sur le réseau. Le retour à la connexion reste explicite après reset ; aucun App Link Android automatique ni endpoint distinct de renvoi de vérification n'est ajouté.
 - Les pages métier utilisent désormais la palette violette commune pour navigation, actions, cartes et chargements. L'accueil affiche le logo ; les parcours et droits sont conservés. Cette harmonisation ne vaut pas une recette visuelle exhaustive de tous les écrans authentifiés.
 - Le logo existant est conservé dans `assets/images/orientia.png`. Sa variante `orientia_transparent.png` retire le fond carré pour l'interface. Aucun chapeau étudiant ne remplace la marque.
@@ -70,7 +70,7 @@ Le backend revalide et normalise avec Google libphonenumber 9.0.43. Il refuse le
 | Parcours | Contrats / comportement |
 |---|---|
 | Authentification | POST `/auth/login`, `/auth/refresh`, `/auth/logout` ; GET `/auth/me` |
-| Compte et récupération | Inscription, vérification par jeton, renvoi conditionnel, demande de récupération, réinitialisation, modification du compte/mot de passe |
+| Compte et récupération | Inscription mobile `/auth/mobile/register`, code via POST `/auth/mobile/verify-email`, renvoi `/auth/mobile/resend-code` ; anciens liens et récupération par jeton conservés pour compatibilité |
 | Profil académique | GET/PUT `/candidates/me/academic-profile`, version et confirmation serveur ; données absentes conservées inconnues |
 | Relevés et OCR | Upload multipart, suivi des analyses versionnées, correction des matières/notes, enregistrement puis confirmation idempotente ; aucune note OCR incertaine inventée |
 | Catalogue | Pays/villes, universités, campus/facultés, formations, bourses et sources ; pagination, filtres et états vides/erreurs distincts |
@@ -152,3 +152,22 @@ Aucun compte candidat de test autorisé n'est disponible en production. Les parc
 | Activation 1.3.1 | Client Web public fourni et intégré en production, surcharge locale conservée, inscription sans faux succès avec erreurs précises et protection contre les doubles soumissions ; diagnostic du déploiement Render séparé de celui de SendGrid |
 
 Les rapports supprimés couvraient F3.3, préservation/preuves, synchronisation, audit Render et validation mobile. Leurs détails historiques restent dans les commits, pas dans de nouveaux rapports concurrents.
+
+## Corrections critiques — version 1.4.0
+
+L’inscription mobile utilise désormais POST `/auth/mobile/register`. Un HTTP 202 n’est reconnu que s’il contient un message et un `challengeId` UUID valide. L’application conserve ce défi dans le parcours de création et affiche immédiatement `VerificationCodePage` avec l’adresse saisie, collage/autofill et clavier numérique, état de chargement unique, renvoi temporisé, erreurs et animation de confirmation. Aucun code n’est renvoyé par l’API, conservé comme jeton de session ou écrit dans les logs. Le mot de passe saisi est effacé du formulaire dès l’acceptation.
+
+Le code envoyé par Brevo est valable dix minutes, à usage unique, limité à cinq essais et trois envois dans une période ; délai minimal de renvoi de 60 secondes. Le backend stocke un HMAC lié au défi et au secret serveur, pas le code en clair. Un refus ne valide pas le compte. Après réussite, **Aller à la connexion** reste une action explicite ; aucune session automatique et aucune navigation vers le backoffice. Les anciens liens et le reset de mot de passe restent disponibles séparément pour compatibilité. Une fermeture forcée complète de l’application n’est pas une persistance du parcours : recommencer la demande avec la même adresse permet au serveur de retrouver le défi éligible, selon ses limites.
+
+L’accueil a été restructuré avec une illustration de marque, une prochaine étape issue du vrai profil et les mêmes accès métier : profil académique, relevés, recommandations, formations/comparaison, simulation, bourses, historique/exports. Cartes, listes, navigation et formulaires partagent la palette lavande/violette. Aucun score ni état d’avancement académique fictif n’est ajouté.
+
+Validation finale locale : **77 tests Flutter réussis**, `flutter analyze` sans anomalie. APK **release 1.4.0+7** compilé avec la vraie URL Render, puis installé par `adb install -r` sur Samsung SM-A326B ; package/version contrôlés, données conservées. La signature reste la clé debug existante : cet APK sert à la recette sur téléphone, pas à une publication Play Store. Les tests du code utilisent des transports simulés ; aucun e-mail réel et aucun compte de production créé. Contrôle visuel ADB du 10 novembre sur le Samsung éveillé : captures successives du logo avec orbites en mouvement puis de la connexion ; aucun ancien logo natif figé en haut observé dans ces captures. Elles ne constituent pas une mesure exhaustive du temps de démarrage Android sur tous les appareils. Aucun formulaire de production soumis.
+
+Commande optimisée de recette :
+
+```powershell
+flutter run --release -d RFCT30G1ABE --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
+flutter build apk --release --dart-define=APP_ENV=production --dart-define=API_BASE_URL=https://orientation-backend-d0ys.onrender.com
+```
+
+APK : `build/app/outputs/flutter-apk/app-release.apk`. Déployer le backend contenant V85/V86 avant de soumettre le nouveau formulaire ; les anciens clients restent compatibles avec leurs routes existantes. Le nouveau code vérifie les contrats et les droits localement, sans prétendre certifier tous les parcours authentifiés sur Render ni les facultés de toutes les universités du monde.

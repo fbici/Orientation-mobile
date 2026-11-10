@@ -128,7 +128,7 @@ void main() {
     await tester.ensureVisible(find.text('Se connecter'));
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
-    expect(find.text('Mon profil académique'), findsOneWidget);
+    expect(find.text('Votre prochaine étape'), findsOneWidget);
     await tester.tap(find.text('Explorer').last);
     await tester.pumpAndSettle();
     expect(
@@ -136,7 +136,8 @@ void main() {
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
     expect(find.text('synthetic@example.test'), findsOneWidget);
-    await tester.ensureVisible(find.text('Se déconnecter'));
+    await tester.scrollUntilVisible(find.text('Se déconnecter'), 200,
+        scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Se déconnecter'));
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
