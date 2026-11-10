@@ -9,6 +9,7 @@ import 'package:orientia/features/documents/presentation/documents_page.dart';
 import 'package:orientia/features/chat/presentation/chat_page.dart';
 import 'package:orientia/core/widgets/academic_widgets.dart';
 import 'support/fake_transport.dart';
+import 'support/launch_logo.dart';
 
 Json profileFixture() => {
       'candidateId': '33333333-3333-4333-8333-333333333333',
@@ -105,6 +106,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final api = clientFor((r, s) => publicFixture(r));
     await tester.pumpWidget(OrientiaApp(apiClient: api));
+    await loadSplashLogo(tester);
     await tester.pumpAndSettle();
     expect(find.text('Se connecter'), findsOneWidget);
     expect(find.text('Créer un compte'), findsOneWidget);
@@ -117,6 +119,7 @@ void main() {
       (tester) async {
     final api = clientFor((r, s) => publicFixture(r));
     await tester.pumpWidget(OrientiaApp(apiClient: api));
+    await loadSplashLogo(tester);
     await tester.pumpAndSettle();
     await tester.enterText(
         find.byType(TextFormField).at(0), 'synthetic@example.test');
@@ -150,6 +153,7 @@ void main() {
             requestOptions: r, type: DioExceptionType.connectionError),
         store: MemorySessions(jsonEncode(sessionData())));
     await tester.pumpWidget(OrientiaApp(apiClient: api));
+    await loadSplashLogo(tester);
     await tester.pumpAndSettle();
     expect(find.textContaining('Vos données privées restent verrouillées'),
         findsOneWidget);

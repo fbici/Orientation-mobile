@@ -84,9 +84,11 @@ class _OrientiaAppState extends State<OrientiaApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        key: ValueKey(api.status == SessionStatus.authenticated
-            ? 'account-${api.user?['id']}-${api.sessionEpoch}'
-            : 'signed-out'),
+        key: ValueKey(!launchComplete || introSeen == null
+            ? 'launch'
+            : api.status == SessionStatus.authenticated
+                ? 'account-${api.user?['id']}-${api.sessionEpoch}'
+                : 'signed-out'),
         title: 'Orientia',
         locale: const Locale('fr'),
         supportedLocales: const [Locale('fr'), Locale('en')],

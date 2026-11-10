@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../auth/presentation/auth_widgets.dart';
 
@@ -12,18 +13,28 @@ class LaunchSplash extends StatefulWidget {
 class _LaunchSplashState extends State<LaunchSplash>
     with SingleTickerProviderStateMixin {
   late final controller = AnimationController(vsync: this);
-  bool started = false;
+  bool started = false, reduced = false;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!started) {
       started = true;
-      controller.duration = Duration(
-          milliseconds: MediaQuery.disableAnimationsOf(context) ? 50 : 1400);
-      controller.forward().whenComplete(() {
-        if (mounted) widget.onFinished();
-      });
+      reduced = MediaQuery.disableAnimationsOf(context) ||
+          MediaQuery.accessibleNavigationOf(context);
+      controller.duration = Duration(milliseconds: reduced ? 700 : 3200);
+      unawaited(start());
     }
+  }
+
+  Future<void> start() async {
+    // Decode the real logo before the timeline so slow asset loading cannot
+    // consume its appearance and readable hold on a physical device.
+    await precacheImage(
+        const AssetImage('assets/images/orientia_transparent.png'), context);
+    if (!mounted) return;
+    controller.forward().whenComplete(() {
+      if (mounted) widget.onFinished();
+    });
   }
 
   @override
@@ -36,18 +47,96 @@ class _LaunchSplashState extends State<LaunchSplash>
   Widget build(BuildContext context) => Scaffold(
       backgroundColor: authPaper,
       body: ReferenceBackground(
-          child: Center(
-              child: AnimatedBuilder(
-                  animation: controller,
-                  builder: (context, child) {
-                    final value =
-                        Curves.easeOutCubic.transform(controller.value);
-                    return Opacity(
-                        opacity: value,
-                        child: Transform.scale(
-                            scale: .82 + .18 * value, child: child));
-                  },
-                  child: const BrandLogo(height: 175)))));
+          child: SafeArea(
+              child: Center(
+                  child: AnimatedBuilder(
+                      animation: controller,
+                      builder: (context, child) {
+                        final value = controller.value;
+                        final appear = reduced
+                            ? 1.0
+                            : const Interval(0, .32, curve: Curves.easeOutCubic)
+                                .transform(value);
+                        final settle = reduced
+                            ? 1.0
+                            : const Interval(.22, .58,
+                                    curve: Curves.easeInOutCubic)
+                                .transform(value);
+                        final leave = reduced
+                            ? 0.0
+                            : const Interval(.91, 1, curve: Curves.easeInCubic)
+                                .transform(value);
+                        return Opacity(
+                            key: const ValueKey('splash-stage'),
+                            opacity: 1 - leave,
+                            child: SizedBox(
+                              width: 320,
+                              height: 380,
+                              child:
+                                  Stack(alignment: Alignment.center, children: [
+                                Positioned(
+                                    top: 35,
+                                    left: 20,
+                                    right: 20,
+                                    bottom: 65,
+                                    child: ExcludeSemantics(
+                                        child: CustomPaint(
+                                      painter: _BrandArrival(
+                                          progress: reduced ? 1 : value),
+                                    ))),
+                                Transform.translate(
+                                  offset: Offset(
+                                      0, reduced ? 0 : 22 * (1 - appear)),
+                                  child: Transform.scale(
+                                    key: const ValueKey('splash-logo-motion'),
+                                    scale: reduced
+                                        ? 1
+                                        : .84 + .2 * appear - .04 * settle,
+                                    child:
+                                        Opacity(opacity: appear, child: child),
+                                  ),
+                                ),
+                              ]),
+                            ));
+                      },
+                      child: const BrandLogo(height: 180))))));
+}
+
+class _BrandArrival extends CustomPainter {
+  final double progress;
+  const _BrandArrival({required this.progress});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = math.min(size.width, size.height) * .47;
+    final trace = const Interval(.08, .58, curve: Curves.easeInOutCubic)
+        .transform(progress);
+    final rest =
+        const Interval(.62, .9, curve: Curves.easeOut).transform(progress);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2;
+    stroke.color = authPurple.withValues(alpha: .2 * (1 - rest));
+    canvas.drawArc(rect, -math.pi * .8, math.pi * .72 * trace, false, stroke);
+    stroke.color = const Color(0xff009f88).withValues(alpha: .24 * (1 - rest));
+    canvas.drawArc(
+        rect.deflate(9), math.pi * .15, math.pi * .65 * trace, false, stroke);
+    final point = Paint()
+      ..color = authPurple.withValues(alpha: .5 * (1 - rest));
+    final angle = -math.pi * .8 + math.pi * .72 * trace;
+    if (trace > 0) {
+      canvas.drawCircle(
+          center + Offset(math.cos(angle), math.sin(angle)) * radius,
+          3.5,
+          point);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BrandArrival oldDelegate) =>
+      progress != oldDelegate.progress;
 }
 
 class WelcomePage extends StatefulWidget {
