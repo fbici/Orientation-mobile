@@ -113,6 +113,8 @@ Un 503 contenant exactement le motif serveur `Email delivery unavailable; no del
 
 Le journal communiqué le 10 novembre montre un build Docker réussi puis un déploiement expiré sans port détecté. La configuration du port dans le dépôt est déjà `PORT` / `0.0.0.0`. Le contrôle public a obtenu `/actuator/health` UP, mais OPTIONS `/auth/google` annonçait seulement GET/HEAD/OPTIONS. Ces constats ne certifient pas que le dernier backend est actif et ne permettent pas d'attribuer l'échec d'inscription à SendGrid. Il faut confirmer le déploiement Live et consulter les WARN à l'heure de la tentative, en contrôlant `SENDGRID_ENABLED`, la présence de la clé, l'expéditeur vérifié, `APP_BASE_URL` et éventuellement `PASSWORD_RESET_URL`, sans transmettre de secret. Les détails de démarrage et de configuration sont documentés dans le README backend.
 
+Contrôle après publication : OPTIONS `/auth/google` annonce désormais **POST/OPTIONS** et `/actuator/health` répond **HTTP 200 UP**. La route publique attendue est donc maintenant exposée. Ce constat ne certifie ni le SHA Live exact du tableau de bord, ni une connexion Google complète ou un e-mail d'inscription livré. Aucun formulaire ni compte réel n'a été utilisé pendant cette vérification ; la cause précise du 503 observé par l'utilisateur reste à confirmer dans les logs de sa tentative.
+
 Contact public : **lestudioviral@gmail.com**. Alertes administratives côté serveur : **adminorientia@gmail.com**. Aucune clé SendGrid, aucun secret JWT ou identifiant PostgreSQL ne doit entrer dans Flutter.
 
 ## Vérifications et limites
