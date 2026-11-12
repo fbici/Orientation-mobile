@@ -11,6 +11,21 @@ class ApiFailure implements Exception {
       final data = error.response?.data;
       final reason = data is Map ? data['message'] : null;
       final code = data is Map ? (data['code'] ?? reason) : null;
+      if (code == 'ACCOUNT_DELETION_PENDING') {
+        return ApiFailure(
+            'La suppression de ce compte a été demandée. L’adresse reste réservée pendant 30 jours et jusqu’à la fin de l’effacement. Aucun code n’a été envoyé. Pour toute question : lestudioviral@gmail.com.',
+            status);
+      }
+      if (code == 'DELETION_IDENTITY_REQUIRED') {
+        return ApiFailure(
+            'Identité non confirmée. Saisissez votre mot de passe actuel ou sélectionnez le compte Google associé à Orientia.',
+            status);
+      }
+      if (code == 'ACCOUNT_INACTIVE') {
+        return ApiFailure(
+            'Cette adresse est associée à un compte désactivé. Une nouvelle inscription avec cette adresse est indisponible. Aucun code n’a été envoyé. Contactez le support Orientia : lestudioviral@gmail.com.',
+            status);
+      }
       if (status == 503 &&
           reason == 'Email delivery unavailable; no delivery is confirmed') {
         return const ApiFailure(

@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/data/orientation_repository.dart';
 import '../../../core/network/api_client.dart';
@@ -112,7 +113,7 @@ class _SimulationPageState extends State<SimulationPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Simuler une hypothèse')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         const Notice(

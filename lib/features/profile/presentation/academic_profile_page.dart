@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/data/orientation_repository.dart';
@@ -191,7 +192,7 @@ class _AcademicProfilePageState extends State<AcademicProfilePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Mon profil académique'), actions: [
         IconButton(
             onPressed: saving ? null : load,

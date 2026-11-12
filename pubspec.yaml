@@ -1,7 +1,7 @@
 name: orientia
 description: Orientia — Plateforme intelligente d'orientation universitaire
 publish_to: 'none'
-version: 1.4.0+7
+version: 1.4.2+9
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

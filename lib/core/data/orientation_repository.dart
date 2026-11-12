@@ -22,6 +22,27 @@ class OrientationRepository {
       object((await api.call('/$kind/$id')).data);
   Future<List<Json>> sources(String kind, String id) async =>
       objects((await api.call('/$kind/$id/sources')).data);
+  Future<List<Json>> admissionCriteria(String programId) async {
+    final result = <Json>[];
+    for (var page = 0; page < 100; page++) {
+      final current = PageData<Json>.parse(
+          (await api.call('/admission-criteria', query: {
+            'programId': programId,
+            'page': page,
+            'size': 100
+          }))
+              .data,
+          (value) => value);
+      result.addAll(current.content);
+      if (!current.hasNext) return result;
+      if (current.page != page || current.content.isEmpty) {
+        throw const FormatException('Pagination des critères incohérente');
+      }
+    }
+    throw const FormatException(
+        'Trop de critères pour afficher une liste complète');
+  }
+
   Future<PageData<Recommendation>> recommendations(
           {int page = 0, String? runId}) async =>
       PageData.parse(

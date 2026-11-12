@@ -17,7 +17,7 @@ class AppConstants {
   static const connectTimeoutMs = 15000,
       receiveTimeoutMs = 90000,
       defaultPageSize = 20;
-  static const appName = 'Orientia', appVersion = '1.0.0';
+  static const appName = 'Orientia', appVersion = '1.4.2';
   static Uri validateBaseUrl(String value,
       {bool release = kReleaseMode, String env = environment}) {
     final uri = Uri.parse(value);

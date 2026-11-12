@@ -171,3 +171,130 @@ flutter build apk --release --dart-define=APP_ENV=production --dart-define=API_B
 ```
 
 APK : `build/app/outputs/flutter-apk/app-release.apk`. Déployer le backend contenant V85/V86 avant de soumettre le nouveau formulaire ; les anciens clients restent compatibles avec leurs routes existantes. Le nouveau code vérifie les contrats et les droits localement, sans prétendre certifier tous les parcours authentifiés sur Render ni les facultés de toutes les universités du monde.
+
+
+## Inventaire fonctionnel mobile — 11 novembre 2026
+
+Audit statique initial : les statuts « implémenté » ne signifient pas recette production réussie. Les parcours d’authentification, le thème et les assets validés sont gelés. Aucun compte de test production autorisé. P2/P3 non ajoutées automatiquement.
+
+| Module | Écran/composant | Backend disponible | Flutter disponible | État audité | Correction/périmètre | Vérification prévue |
+|---|---|---|---|---|---|---|
+| 1–3 Authentification validée | Splash, présentation, connexion, inscription, vérification, récupération | Oui : /auth/* | Oui | Gel demandé | Aucune modification des écrans | Tests de non-régression existants + empreintes |
+| 4 Accueil | DashboardPage | GET /candidates/me/academic-profile | Oui | Partiel | Actualiser le dossier au retour ; accès rapides métier | Widget accueil, retour du profil |
+| 5 Profil académique | AcademicProfilePage | GET/PUT /candidates/me/academic-profile | Oui | Implémenté | Préserver version, brouillon et confirmation personnelle | Contrats + widgets |
+| 6 Matières et notes | AcademicProfilePage | GET /subjects, /grade-scales | Oui | Implémenté | Ne pas transformer une valeur inconnue en zéro | Tests modèles et profil |
+| 7 Relevés | DocumentsPage | GET/POST /transcripts | Oui | Implémenté | Conserver validation PDF/images et consentement | Tests service upload ; Android à recetter |
+| 8 OCR/correction | TranscriptPage, AnalysisPage | POST/GET/PUT /transcripts/{id}/analyses ; POST /confirm | Oui | Implémenté | Préserver versions et confirmation personnelle | Tests contrats ; OCR local existant |
+| 9 Universités | UniversitiesPage, CatalogPage | GET /universities | Oui | Implémenté | Accès depuis un véritable accueil Explorer | Widget navigation |
+| 10 Campus/facultés | CatalogDetailPage | GET /campuses, /faculties et /{id}/sources | Oui | Partiel | Accès facultés depuis université et formations depuis campus | Contrats filtres et navigation |
+| 11 Formations | ProgramsPage | GET /programs | Oui | Implémenté | Accès direct depuis Explorer | Widget navigation |
+| 12 Admission | CatalogDetailPage | GET /admission-criteria?programId | Oui | Partiel | Charger toutes les pages de critères ; ordre stable côté serveur | Contrats critères |
+| 13 Recommandations | RecommendationsPage | POST /recommendations/generate ; GET /recommendations | Oui | Implémenté | Accessible depuis Parcours ; aucun score assimilé à une admission | Tests modèles/service |
+| 14 Explications | RecommendationDetailPage, DecisionContent | GET /recommendations/{id} | Oui | Implémenté | Conserver état historique et sources | Tests modèles/sourceCurrent |
+| 15 Simulations | SimulationPage | POST /recommendations/simulate | Oui | Implémenté | Accès Parcours ; profil confirmé inchangé | Tests contrat simulation |
+| 16 Comparaison | CatalogPage, DecisionPage | POST /ai/compare/programs | Oui | Implémenté | Sélection existante de 2 à 6 formations | Tests contrat comparaison |
+| 17 Bourses | ScholarshipsPage, CatalogDetailPage | GET /scholarships ; POST /scholarships/evaluate | Oui | Implémenté | Accès Explorer, disponibilité distincte de l’éligibilité | Tests contrat bourses |
+| 18 Assistant | ChatPage | POST /ai/chat/sessions et /{id}/messages | Oui | Partiel | Dernière page après envoi, saisie protégée, états vides et reprise | Widgets chat avec transport simulé |
+| 19 Conversations | ChatPage | GET /ai/chat/sessions et /{id}/messages | Oui | Partiel | Pagination chronologique, actualiser sessions après création | Widgets pagination chat |
+| 20 Décisions | HistoryPage | GET /ai/decisions ; /recommendations/history | Oui | Implémenté | Raccourcis selon type depuis Profil/Parcours | Widgets historique |
+| 21 Exports | DecisionPage | GET /ai/export/{pdf,csv,excel}/{id} | Oui | Implémenté | Ne pas présenter de liste persistée d’exports inexistante | Tests signatures PDF/XLSX |
+| 22 Profil utilisateur | ProfilePage | GET/PUT /auth/me | Oui | Partiel | Téléphone préservé lors de l’édition ; état occupé | Test mise à jour coordonnées |
+| 23 Sécurité | ProfilePage | PUT /auth/me/password | Oui | Partiel | Validation avant fermeture ; retour connexion après changement | Widget sécurité |
+| 24 Paramètres | SettingsPage | Actions compte existantes | Oui | Ajouté et compilé | Regrouper compte, informations et support sans options fictives | Widget navigation paramètres |
+| 25 Notifications | Absent côté mobile | API backoffice, pas contrat candidat confirmé | Non | Bloqué/périmètre P2 | Ne pas réutiliser une API administrative | Audit endpoints/rôles |
+| 26 Aide/contact | SupportPage | Contact public fourni : lestudioviral@gmail.com | Oui | Ajouté et compilé | Accès support, copie adresse, explications des parcours | Widget support |
+| 27 À propos | AboutOrientiaPage | Informations locales | Oui | Ajouté et compilé | Logo existant, mission, version, limites des recommandations | Widget informations |
+| 28 CGU/confidentialité | Aucun texte juridique approuvé trouvé | Aucun endpoint légal dédié confirmé | Non | Contenus manquants | Demander identité éditeur, textes/URL approuvés ; ne pas inventer | Audit documentaire |
+| 29 Déconnexion | ProfilePage | POST /auth/logout | Oui | Implémenté | Conserver effacement local et révocation serveur | Tests session existants |
+| 30 États techniques | AsyncContent, ErrorNotice, ApiFailure | Codes HTTP et erreurs métier | Oui | Partiel | Messages ciblés et reprises ; éviter les faux succès | Tests erreurs et widgets |
+| Suppression de compte | AccountDeletionPage ; backoffice utilisateurs | POST /auth/me/deletion-request ajouté ; DELETE /admin/users/{id} reste une suspension | Oui | Développé et testé localement | Demande personnelle explicite, délai validé de 30 jours, purge isolée de la suspension administrative | Tests PostgreSQL, Google simulé et widget ; aucun e-mail réel |
+
+Plan : corriger le retour des comptes inactifs ; compléter la navigation métier et les informations de compte ; fiabiliser le chat ; tester et compiler. Délai de 30 jours validé par le propriétaire pendant ce lot. Aucune modification JVM/Render ni publication prévue par ce lot.
+
+### Livraison métier 1.4.1+8 — 11 novembre 2026
+
+**État : modifications locales, non commitées/non poussées.** Le backend déployé n’a pas été modifié. La nouvelle suppression personnelle et le téléphone dans `/auth/me` nécessitent la publication préalable des corrections backend ; la production actuelle ne doit pas être présentée comme validée sur ces parcours.
+
+Les 38 fichiers du démarrage, de la présentation, de l’authentification, du thème et des assets ont été comparés par SHA-256 avant/après : aucun changement. L’ajout de messages d’erreur métier dans `ApiFailure` ne modifie pas ces écrans.
+
+#### Corrections et modules livrés
+
+- Navigation : les cinq onglets restent présents. Explorer donne accès aux universités, formations/comparaisons et bourses. Parcours regroupe dossier, relevés/OCR, recommandations, simulations, historique/exports et assistant. L’accueil recharge le dossier au retour des actions et donne accès au profil.
+- Catalogue : accès aux facultés/écoles depuis une université et aux formations depuis un campus. Les critères d’admission ne s’arrêtent plus silencieusement aux 100 premiers ; le backend stabilise leur ordre par priorité puis identifiant.
+- Profil : le serveur retourne le téléphone, y compris `null`. Modifier le nom conserve le téléphone enregistré ; un changement ou retrait du numéro exige de cocher l’option dédiée. Un ancien serveur qui omet ce champ bloque l’édition pour éviter une perte de données. Les formulaires de coordonnées/mot de passe valident avant fermeture, attendent l’acquittement et empêchent les doubles envois.
+- Assistant : ouverture des derniers messages, retour à la dernière page après envoi, pagination précédente/suivante, brouillon protégé pendant l’appel, reprise des lectures et états vides. Les paramètres sont réinitialisés au changement de conversation. L’historique et les boutons défilent sans imposer une rangée trop large ; le compositeur est défilable avec le clavier. Le bouton de reprise ne renvoie pas automatiquement une question.
+- Informations : paramètres, aide/contact, copie de l’adresse publique, ouverture du compositeur d’e-mail, à propos/version/licences et information explicite sur l’absence de textes juridiques approuvés. Aucune politique juridique fictive.
+
+#### Suppression personnelle et adresse e-mail
+
+Depuis **Profil > Supprimer mon compte**, le candidat saisit `SUPPRIMER` et confirme son identité avec son mot de passe actuel ou le compte Google déjà associé. `POST /auth/me/deletion-request` ne prend aucun identifiant de tiers : il utilise exclusivement le candidat authentifié. La réponse contient `purgeAfter`, puis l’utilisateur peut revenir à la connexion.
+
+La demande désactive immédiatement l’accès et révoque les sessions. L’adresse reste réservée **au moins 30 jours, puis jusqu’à la réussite de l’effacement**. Une nouvelle inscription pendant cette période reçoit `ACCOUNT_DELETION_PENDING`, sans faux code annoncé. Un compte seulement désactivé reçoit `ACCOUNT_INACTIVE` et une indication de contact.
+
+**Les anciens comptes désactivés dans le backoffice ne sont pas convertis en demandes de suppression.** Leur date/intention de suppression n’est pas connue. La suspension administrative conserve l’adresse et ne peut pas être contournée en attendant 30 jours. Le backoffice affiche les demandes personnelles et leur échéance séparément et ne permet pas leur réactivation ordinaire.
+
+L’effacement porte sur les données applicatives liées au candidat et les fichiers privés gérés par le serveur. Une référence partagée, un fichier inaccessible ou une contrainte non résolue bloque la fin de l’opération et la libération de l’adresse. Les sauvegardes, les e-mails déjà livrés et leurs copies chez le prestataire relèvent de procédures de conservation distinctes. Sur Render Free, un service endormi peut traiter l’échéance au réveil, pas nécessairement à la minute exacte du trentième jour.
+
+#### Vérifications réalisées
+
+- `flutter analyze` : aucune anomalie.
+- `flutter test` : **85 tests réussis** ; après le dernier ajustement du défilement de l’assistant, **13 tests ciblés supplémentaires réussis**.
+- Backend : campagne complète **289 tests recensés, 286 exécutés avec succès, 3 tests OCR ignorés**, zéro échec. PostgreSQL exclusivement local, schéma neuf, arrêté après tests ; aucun e-mail réel. Après les derniers ajustements, **54 tests backend ciblés réussis**, dont le refus d’un compte Google tiers et le blocage de réactivation administrative pendant le délai.
+- Angular : **96 tests réussis** et build production réussi. Avertissements conservés : budget CSS du layout et dépendance CommonJS `sockjs-client`.
+- Préservation : 38 empreintes de fichiers protégés identiques ; `git diff --check` sans erreur.
+
+#### Limites et prochaine recette
+
+Les statuts de l’inventaire initial restent un audit de code, pas une recette de chaque fonctionnalité en production. Aucun compte candidat de test production n’est autorisé ; aucun relevé réel ni suppression réelle n’a été envoyé. Les échanges Google des tests sont simulés. L’intégration OCR réelle comporte trois tests ignorés dans cette campagne. Une recette Android authentifiée reste à faire avec un compte dédié, après publication du backend.
+
+Les notifications candidat, favoris, voix, pièces jointes de chat, renommage/suppression/recherche de conversations ne sont pas ajoutés sans contrat API/périmètre validé. Les CGU et la politique de confidentialité approuvées restent à fournir. Les contenus universitaires et leurs sources n’ont pas été modifiés par ce lot.
+
+#### Commandes Android
+
+```powershell
+flutter run --release --dart-define=APP_ENV=production --dart-define=ORIENTIA_API_URL=https://orientation-backend-d0ys.onrender.com
+flutter build apk --release --dart-define=APP_ENV=production --dart-define=ORIENTIA_API_URL=https://orientation-backend-d0ys.onrender.com
+```
+
+L’APK de test a été généré dans `build/app/outputs/flutter-apk/app-release.apk` : package `com.orientia.orientia`, version **1.4.1+8**, **62,3 Mio**, vérifiés avec `aapt`. Aucun APK n’a été installé pendant ce lot. La signature Android conserve la configuration existante ; cette compilation ne constitue pas une publication Play Store.
+
+Empreinte SHA-256 de cet APK : `f29dfa7c499ad85ba8f5d9150ba1bb2f155576144bbb677eb8f3ae3cf9640718`. Dernier contrôle de préservation : les 38 empreintes protégées restent identiques. Test additionnel backend : **1 test réussi** vérifie que les diagnostics de la demande de suppression ne contiennent ni mot de passe ni jeton Google.
+
+
+## Interfaces métier — livraison du 12 novembre 2026
+
+Cette livraison regroupe les changements fonctionnels du 11 novembre et les corrections de présentation du 12 novembre. Les mentions « lot local non publié » des sections précédentes décrivent leur état avant cette livraison.
+
+### Mobile 1.4.2+9
+
+- Les cinq onglets Accueil, Explorer, Parcours, Assistant et Profil sont conservés. Une surface visuelle commune aux écrans métier harmonise fonds, cartes, champs, boutons, barres de titre et navigation ; les parcours d’entrée validés ne sont pas retouchés. Les 38 empreintes contrôlées de démarrage/authentification/thème d’entrée/assets sont identiques à leur état validé.
+- Explorer et Parcours disposent de cartes avec icônes, titres et descriptions. Les catalogues, recommandations, relevés, versions d’analyse et historique de décisions chargent progressivement leurs résultats. Les pages déjà reçues restent consultables ; les filtres/recherches repartent de la première page. Les étapes du formulaire académique conservent leurs boutons de progression.
+- Paramètres donne accès au compte, à la sécurité, à l’aide et aux informations légales. À propos mentionne « Créé par Le Studio Viral ». Éditeur confirmé : **SALAOU Souleyman**, propriétaire de la marque, sans numéro d’immatriculation déclaré. Contact : **lestudioviral@gmail.com**.
+- Les pages de confidentialité, conditions d’utilisation et informations sur l’éditeur décrivent les données, le service d’orientation, Render, Brevo, Google facultatif, la suppression après 30 jours et les demandes au support. **L’adresse professionnelle, les durées des journaux/sauvegardes et les modalités des transferts internationaux restent à compléter** ; aucun agrément ni conformité juridique n’est revendiqué. Référence consultée pour les droits : [APDP Bénin — protéger](https://archive.apdp.bj/proteger/).
+
+### Backoffice
+
+- Les recommandations et décisions utilisent une recherche de candidat par nom/e-mail (`GET /candidates/search`) plutôt qu’une saisie d’UUID. Les comparaisons sélectionnent les formations par leur nom depuis le catalogue existant, avec une limite de six.
+- Rapports affiche un mode dédié à l’historique et aux exports, sans formulaire de simulation. La navigation ne sélectionne plus simultanément Intelligence et Aide à la décision.
+- Les espacements des formulaires/actions, zones d’import, états vides et pagination sont harmonisés. Les noms des types d’import sont traduits. La pagination ne propose pas de navigation lorsqu’une seule page ou aucun résultat est disponible. Les outils de calcul utilisent la pagination partagée.
+- Les indicateurs non mesurés restent explicitement indisponibles. Aucune statistique, notification, fonctionnalité de favori ou capacité de modèle IA externe n’est inventée.
+
+### Vérifications
+
+- Flutter : **87 tests réussis** dans la suite complète finale ; **10 tests métier ciblés réussis**. Couverture ajoutée : accumulation des résultats sans pagination visible, remise à zéro lors d’une recherche, lecture des informations à 360 px avec texte agrandi, accès aux rubriques après défilement.
+- Angular : **98 tests réussis**, build production réussi. Deux avertissements conservés : budget CSS du layout et CommonJS `sockjs-client`.
+- Backend Java : aucun nouveau changement Java dans la phase de présentation. Les validations du lot fonctionnel restent celles documentées plus haut : 289 recensés dont 286 réussis/3 OCR ignorés, puis 54 tests ciblés et 1 test de masquage réussis.
+- Aperçus backoffice Rapports, Aide à la décision et Imports contrôlés dans Chrome local avec un compte synthétique et des réponses simulées. Ce contrôle ne valide pas les données ni les droits d’un compte de production.
+- Recherche de signatures de secrets sur les fichiers publiables : aucune clé Brevo/SendGrid/AWS ni clé privée détectée. Cette recherche par motifs ne constitue pas une preuve d’absence de tout secret possible.
+- Aucun e-mail réel, aucune modification de base de production, aucun changement JVM/variables Render. La recette métier avec un compte candidat autorisé et le contrôle sur téléphone restent distincts des tests locaux.
+
+Commandes mobile :
+
+```powershell
+flutter run --release --dart-define=APP_ENV=production --dart-define=ORIENTIA_API_URL=https://orientation-backend-d0ys.onrender.com
+flutter build apk --release --dart-define=APP_ENV=production --dart-define=ORIENTIA_API_URL=https://orientation-backend-d0ys.onrender.com
+```
+
+L’installation d’un nouvel APK est nécessaire pour voir les changements mobiles ; un push GitHub ne met pas à jour l’application déjà installée. Pour le backoffice, le push doit être suivi d’un déploiement Render réussi. Après publication, vérifier le commit Live et la santé du serveur avant de recetter les nouveaux parcours.
+
+Livrable Android vérifié : `build/app/outputs/flutter-apk/app-release.apk`, package `com.orientia.orientia`, version **1.4.2**, code **9**, environ **62,4 Mio**. SHA-256 : `cdcf7726ca3b02e578a10fef69a9ca639fb6007e06fd786b2915caae3f76e813`. `flutter analyze` final : aucun problème. Cet APK n’a pas été installé pendant cette livraison. Backend/backoffice publié sur `origin/main` : `a0a7c5e3` ; l’état Live de Render n’est pas confirmé par le succès du push.

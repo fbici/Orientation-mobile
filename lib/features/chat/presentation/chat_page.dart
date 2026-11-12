@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/data/orientation_repository.dart';
 import '../../../core/models/academic_models.dart';
@@ -61,6 +62,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> create() async {
+    if (busy) return;
     setState(() {
       busy = true;
       error = null;
@@ -73,8 +75,15 @@ class _ChatPageState extends State<ChatPage> {
           messages = [];
           messagePage = 0;
           generation++;
+          recommendation = null;
+          selectedPrograms.clear();
+          average.clear();
+          intent = 'FREE';
+          message.clear();
+          sessionPage = 0;
         });
-        await loadMessages();
+        await loadSessions();
+        if (mounted) await loadMessages(latest: true);
       }
     } catch (e) {
       if (mounted) setState(() => error = e);
@@ -83,7 +92,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Future<void> loadMessages() async {
+  Future<void> loadMessages({bool latest = false}) async {
     final id = session, request = ++generation;
     if (id == null) return;
     setState(() {
@@ -91,15 +100,32 @@ class _ChatPageState extends State<ChatPage> {
       error = null;
     });
     try {
-      final data = object((await widget.apiClient.call(
+      var data = object((await widget.apiClient.call(
               '/ai/chat/sessions/$id/messages',
-              query: {'page': messagePage, 'size': 20}))
+              query: {'page': latest ? 0 : messagePage, 'size': 20}))
           .data);
+      var targetPage = latest
+          ? ((data['totalPages'] as num?)?.toInt() ?? 1) - 1
+          : messagePage;
+      if (targetPage < 0) targetPage = 0;
+      if (latest && targetPage > 0) {
+        data = object((await widget.apiClient.call(
+                '/ai/chat/sessions/$id/messages',
+                query: {'page': targetPage, 'size': 20}))
+            .data);
+      }
       if (mounted && request == generation) {
         setState(() {
-          messages =
-              objects(data['content']).map((j) => object(j['result'])).toList();
+          messages = objects(data['content'])
+              .map((j) => {...object(j['result']), 'id': j['id']})
+              .toList();
+          messagePage = targetPage;
           messageNext = data['last'] == false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && request == generation && scroll.hasClients) {
+            scroll.jumpTo(latest ? scroll.position.maxScrollExtent : 0);
+          }
         });
       }
     } catch (e) {
@@ -127,7 +153,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> send() async {
-    if (session == null || message.text.trim().isEmpty) return;
+    if (busy || session == null || message.text.trim().isEmpty) return;
     final id = session, request = ++generation;
     final question = message.text.trim();
     setState(() {
@@ -147,21 +173,14 @@ class _ChatPageState extends State<ChatPage> {
         }
         params['simulation'] = {'modifiedGeneralAverage': n};
       }
-      final response = object((await widget.apiClient
+      object((await widget.apiClient
               .sendChatMessage(id!, question, parameters: params))
           .data);
       if (mounted && request == generation && id == session) {
         setState(() {
-          messages = [...messages, response];
           message.clear();
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (scroll.hasClients) {
-            scroll.animateTo(scroll.position.maxScrollExtent,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut);
-          }
-        });
+        await loadMessages(latest: true);
       }
     } catch (e) {
       if (mounted && request == generation) setState(() => error = e);
@@ -171,7 +190,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Assistant Orientia'), actions: [
         IconButton(
             onPressed: busy ? null : create,
@@ -179,58 +198,80 @@ class _ChatPageState extends State<ChatPage> {
             tooltip: 'Nouvelle conversation')
       ]),
       body: Column(children: [
-        const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Notice(
-                'Assistant déterministe : recommandations et sources du backend, sans promesse d’admission.')),
-        ExpansionTile(
-            title: const Text('Reprendre une conversation'),
-            children: [
-              for (final s in sessions)
-                ListTile(
-                    title: Text('Conversation du ${text(s['computedAt'])}'),
-                    onTap: busy
-                        ? null
-                        : () {
-                            setState(() {
-                              session = s['id'] as String;
-                              messagePage = 0;
-                              messages = [];
-                            });
-                            loadMessages();
-                          }),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                TextButton(
-                    onPressed: sessionPage > 0 && !busy
-                        ? () {
-                            sessionPage--;
-                            loadSessions();
-                          }
-                        : null,
-                    child: const Text('Précédent')),
-                TextButton(
-                    onPressed: sessionNext && !busy
-                        ? () {
-                            sessionPage++;
-                            loadSessions();
-                          }
-                        : null,
-                    child: const Text('Suivant'))
-              ]),
-            ]),
         if (busy) const LinearProgressIndicator(),
-        if (error != null) ErrorNotice(error!),
+        if (error != null)
+          ErrorNotice(error!,
+              onRetry: busy
+                  ? null
+                  : () {
+                      session == null
+                          ? loadSessions()
+                          : loadMessages(latest: true);
+                    }),
         Expanded(
             child: ListView(
                 controller: scroll,
                 padding: const EdgeInsets.all(12),
                 children: [
+              const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Notice(
+                      'Des réponses à partir de votre dossier et des sources disponibles. Aucune admission ni bourse garantie.')),
+              ExpansionTile(
+                  title: const Text('Reprendre une conversation'),
+                  children: [
+                    if (!busy && sessions.isEmpty)
+                      const ListTile(
+                          title: Text('Aucune conversation enregistrée.')),
+                    for (final s in sessions)
+                      ListTile(
+                          title:
+                              Text('Conversation du ${text(s['computedAt'])}'),
+                          onTap: busy
+                              ? null
+                              : () {
+                                  setState(() {
+                                    session = s['id'] as String;
+                                    recommendation = null;
+                                    selectedPrograms.clear();
+                                    average.clear();
+                                    intent = 'FREE';
+                                    message.clear();
+                                    messagePage = 0;
+                                    messages = [];
+                                  });
+                                  loadMessages(latest: true);
+                                }),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                              onPressed: sessionPage > 0 && !busy
+                                  ? () {
+                                      sessionPage--;
+                                      loadSessions();
+                                    }
+                                  : null,
+                              child: const Text('Précédent')),
+                          TextButton(
+                              onPressed: sessionNext && !busy
+                                  ? () {
+                                      sessionPage++;
+                                      loadSessions();
+                                    }
+                                  : null,
+                              child: const Text('Suivant'))
+                        ]),
+                  ]),
               if (session == null)
                 Center(
                     child: FilledButton.icon(
                         onPressed: busy ? null : create,
                         icon: const Icon(Icons.chat_bubble_outline),
                         label: const Text('Commencer une conversation'))),
+              if (session != null && messages.isEmpty && !busy && error == null)
+                const Notice(
+                    'Votre conversation est prête. Posez une question sur votre orientation.'),
               for (final m in messages)
                 Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -271,149 +312,165 @@ class _ChatPageState extends State<ChatPage> {
                                   ]))),
                     ]),
               if (session != null)
-                Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                          onPressed: messagePage > 0 && !busy
-                              ? () {
-                                  messagePage--;
-                                  loadMessages();
-                                }
-                              : null,
-                          child: const Text('Messages précédents')),
-                      TextButton(
-                          onPressed: messageNext && !busy
-                              ? () {
-                                  messagePage++;
-                                  loadMessages();
-                                }
-                              : null,
-                          child: const Text('Messages suivants'))
-                    ]),
+                Wrap(alignment: WrapAlignment.spaceBetween, children: [
+                  TextButton(
+                      onPressed: messagePage > 0 && !busy
+                          ? () {
+                              messagePage--;
+                              loadMessages();
+                            }
+                          : null,
+                      child: const Text('Messages précédents')),
+                  TextButton(
+                      onPressed: messageNext && !busy
+                          ? () {
+                              messagePage++;
+                              loadMessages();
+                            }
+                          : null,
+                      child: const Text('Messages suivants'))
+                ]),
             ])),
         if (session != null)
           SafeArea(
               top: false,
               child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    ExpansionTile(
-                        title: const Text(
-                            'Aider l’assistant : paramètres explicites'),
-                        onExpansionChanged: (open) {
-                          if (open && programs.isEmpty) parameters();
-                        },
-                        children: [
-                          DropdownButtonFormField<String>(
-                              initialValue: intent,
-                              decoration: const InputDecoration(
-                                  labelText: 'Type de demande'),
-                              items: const [
-                                DropdownMenuItem(
-                                    value: 'FREE',
-                                    child: Text('Question libre')),
-                                DropdownMenuItem(
-                                    value: 'COMPARISON',
-                                    child: Text('Comparer des formations')),
-                                DropdownMenuItem(
-                                    value: 'SIMULATION',
-                                    child: Text('Simuler une moyenne')),
-                                DropdownMenuItem(
-                                    value: 'EXPLANATION',
+                  child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                          maxHeight: (MediaQuery.sizeOf(context).height -
+                                  MediaQuery.viewInsetsOf(context).bottom) *
+                              .45),
+                      child: SingleChildScrollView(
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                        ExpansionTile(
+                            title: const Text(
+                                'Aider l’assistant : paramètres explicites'),
+                            onExpansionChanged: (open) {
+                              if (open && programs.isEmpty) parameters();
+                            },
+                            children: [
+                              DropdownButtonFormField<String>(
+                                  initialValue: intent,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Type de demande'),
+                                  items: const [
+                                    DropdownMenuItem(
+                                        value: 'FREE',
+                                        child: Text('Question libre')),
+                                    DropdownMenuItem(
+                                        value: 'COMPARISON',
+                                        child: Text('Comparer des formations')),
+                                    DropdownMenuItem(
+                                        value: 'SIMULATION',
+                                        child: Text('Simuler une moyenne')),
+                                    DropdownMenuItem(
+                                        value: 'EXPLANATION',
+                                        child: Text(
+                                            'Expliquer une recommandation')),
+                                    DropdownMenuItem(
+                                        value: 'SCHOLARSHIPS',
+                                        child: Text('Évaluer les bourses')),
+                                  ],
+                                  onChanged: (v) {
+                                    setState(() {
+                                      intent = v!;
+                                      message.text = switch (intent) {
+                                        'COMPARISON' =>
+                                          'Comparer ces formations',
+                                        'SIMULATION' => 'Simuler ma moyenne',
+                                        'EXPLANATION' =>
+                                          'Pourquoi cette recommandation ?',
+                                        'SCHOLARSHIPS' =>
+                                          'Quelles bourses pour mon profil ?',
+                                        _ => ''
+                                      };
+                                    });
+                                  }),
+                              if (intent == 'SIMULATION')
+                                TextField(
+                                    controller: average,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    decoration: const InputDecoration(
+                                        labelText:
+                                            'Moyenne hypothétique dans votre barème confirmé')),
+                              if (intent == 'EXPLANATION')
+                                referenceSelect(
+                                    label: 'Recommandation',
+                                    items: recommendations,
+                                    value: recommendation,
+                                    onChanged: (v) =>
+                                        setState(() => recommendation = v)),
+                              if (['COMPARISON', 'SCHOLARSHIPS']
+                                  .contains(intent))
+                                ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 200),
                                     child:
-                                        Text('Expliquer une recommandation')),
-                                DropdownMenuItem(
-                                    value: 'SCHOLARSHIPS',
-                                    child: Text('Évaluer les bourses')),
-                              ],
-                              onChanged: (v) {
-                                setState(() {
-                                  intent = v!;
-                                  message.text = switch (intent) {
-                                    'COMPARISON' => 'Comparer ces formations',
-                                    'SIMULATION' => 'Simuler ma moyenne',
-                                    'EXPLANATION' =>
-                                      'Pourquoi cette recommandation ?',
-                                    'SCHOLARSHIPS' =>
-                                      'Quelles bourses pour mon profil ?',
-                                    _ => ''
-                                  };
-                                });
-                              }),
-                          if (intent == 'SIMULATION')
-                            TextField(
-                                controller: average,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                decoration: const InputDecoration(
-                                    labelText:
-                                        'Moyenne hypothétique dans votre barème confirmé')),
-                          if (intent == 'EXPLANATION')
-                            referenceSelect(
-                                label: 'Recommandation',
-                                items: recommendations,
-                                value: recommendation,
-                                onChanged: (v) =>
-                                    setState(() => recommendation = v)),
-                          if (['COMPARISON', 'SCHOLARSHIPS'].contains(intent))
-                            ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxHeight: 200),
-                                child: ListView(shrinkWrap: true, children: [
-                                  for (final p in programs)
-                                    CheckboxListTile(
-                                        title: Text(text(p['name'])),
-                                        value:
-                                            selectedPrograms.contains(p['id']),
-                                        onChanged: (v) {
-                                          setState(() {
-                                            if (v == true &&
-                                                selectedPrograms.length < 6) {
-                                              selectedPrograms
-                                                  .add(p['id'] as String);
-                                            }
-                                            if (v == false) {
-                                              selectedPrograms.remove(p['id']);
-                                            }
-                                          });
-                                        }),
-                                ])),
-                          if (['COMPARISON', 'SCHOLARSHIPS'].contains(intent))
-                            TextButton(
-                                onPressed: () async {
-                                  try {
-                                    final next = await repo.catalog('programs',
-                                        page: programs.length ~/ 20);
-                                    if (mounted) {
-                                      setState(() => programs = [
-                                            ...programs,
-                                            ...next.content.map((p) => p.fields)
-                                          ]);
-                                    }
-                                  } catch (e) {
-                                    if (mounted) setState(() => error = e);
-                                  }
-                                },
-                                child:
-                                    const Text('Charger d’autres formations')),
-                        ]),
-                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Expanded(
-                          child: TextField(
-                              controller: message,
-                              minLines: 1,
-                              maxLines: 3,
-                              maxLength: 2000,
-                              decoration: const InputDecoration(
-                                  labelText: 'Votre question'))),
-                      IconButton(
-                          onPressed: busy ? null : send,
-                          icon: const Icon(Icons.send),
-                          tooltip: 'Envoyer la question')
-                    ]),
-                  ]))),
+                                        ListView(shrinkWrap: true, children: [
+                                      for (final p in programs)
+                                        CheckboxListTile(
+                                            title: Text(text(p['name'])),
+                                            value: selectedPrograms
+                                                .contains(p['id']),
+                                            onChanged: (v) {
+                                              setState(() {
+                                                if (v == true &&
+                                                    selectedPrograms.length <
+                                                        6) {
+                                                  selectedPrograms
+                                                      .add(p['id'] as String);
+                                                }
+                                                if (v == false) {
+                                                  selectedPrograms
+                                                      .remove(p['id']);
+                                                }
+                                              });
+                                            }),
+                                    ])),
+                              if (['COMPARISON', 'SCHOLARSHIPS']
+                                  .contains(intent))
+                                TextButton(
+                                    onPressed: () async {
+                                      try {
+                                        final next = await repo.catalog(
+                                            'programs',
+                                            page: programs.length ~/ 20);
+                                        if (mounted) {
+                                          setState(() => programs = [
+                                                ...programs,
+                                                ...next.content
+                                                    .map((p) => p.fields)
+                                              ]);
+                                        }
+                                      } catch (e) {
+                                        if (mounted) setState(() => error = e);
+                                      }
+                                    },
+                                    child: const Text(
+                                        'Charger d’autres formations')),
+                            ]),
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                  child: TextField(
+                                      controller: message,
+                                      enabled: !busy,
+                                      minLines: 1,
+                                      maxLines: 3,
+                                      maxLength: 2000,
+                                      decoration: const InputDecoration(
+                                          labelText: 'Votre question'))),
+                              IconButton(
+                                  onPressed: busy ? null : send,
+                                  icon: const Icon(Icons.send),
+                                  tooltip: 'Envoyer la question')
+                            ]),
+                      ]))))),
       ]));
   List<Widget> structured(Object? data) {
     if (data is List) return [for (final row in objects(data)) _card(row)];

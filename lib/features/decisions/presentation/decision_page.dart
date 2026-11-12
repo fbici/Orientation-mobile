@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/academic_models.dart';
 import '../../../core/network/api_client.dart';
@@ -74,7 +75,7 @@ class DecisionPage extends StatelessWidget {
       required this.load,
       required this.title});
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: Text(title)),
       body: AsyncContent<Decision>(
           load: load,

@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/data/orientation_repository.dart';
@@ -17,6 +18,8 @@ class RecommendationsPage extends StatefulWidget {
 class _RecommendationsPageState extends State<RecommendationsPage> {
   late final repo = OrientationRepository(widget.apiClient);
   PageData<Recommendation>? result;
+  final items = <Recommendation>[];
+  int generation = 0;
   bool busy = true;
   Object? error;
   int page = 0;
@@ -28,10 +31,18 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && busy) return;
+    final request = ++generation;
+    final nextPage = more ? page + 1 : 0;
     setState(() {
       busy = true;
       error = null;
+      if (!more) {
+        items.clear();
+        result = null;
+        page = 0;
+      }
     });
     try {
       if (currentRun == null) {
@@ -40,17 +51,23 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
           currentRun = runs.content.first['runId'] as String;
         }
       }
-      final list = await repo.recommendations(page: page, runId: currentRun);
-      if (mounted) setState(() => result = list);
+      final list =
+          await repo.recommendations(page: nextPage, runId: currentRun);
+      if (mounted && request == generation) {
+        setState(() {
+          result = list;
+          page = nextPage;
+          items.addAll(list.content);
+        });
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && request == generation) {
         setState(() {
           error = e;
-          result = null;
         });
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted && request == generation) setState(() => busy = false);
     }
   }
 
@@ -71,7 +88,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(
           title: Text(widget.runId == null
               ? 'Mes recommandations'
@@ -94,60 +111,57 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
                     child: const Text('Vérifier mon profil')),
               ])),
         if (busy) const LinearProgressIndicator(),
-        if (error != null) ErrorNotice(error!, onRetry: load),
+        if (error != null)
+          ErrorNotice(error!, onRetry: () => load(more: items.isNotEmpty)),
         Expanded(
             child: RefreshIndicator(
-                onRefresh: load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  const Notice(
-                      'Un score mesure la compatibilité avec les données connues, jamais une probabilité d’admission.'),
-                  for (final r in result?.content ?? <Recommendation>[])
-                    Card(
-                        child: ListTile(
-                            title: Text(r.name),
-                            subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  EligibilityChip(r.eligibility),
-                                  Text(
-                                      'Compatibilité : ${r.score == null ? 'Indéterminée' : '${r.score!.toStringAsFixed(2)} /100'}'),
-                                  if (r.stale)
-                                    const Text(
-                                        'Profil modifié depuis le calcul'),
-                                  if (!r.sourceCurrent)
-                                    const Text(
-                                        'Guide inactif ou non déterminé'),
-                                ]),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                    builder: (_) => RecommendationDetailPage(
-                                        apiClient: widget.apiClient,
-                                        id: r.id))))),
-                  if (!busy && result?.content.isEmpty == true)
-                    const ListTile(
-                        title: Text(
-                            'Aucune recommandation enregistrée. Vérifiez le profil confirmé et les guides disponibles.')),
-                ]))),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton(
-              onPressed: page > 0 && !busy
-                  ? () {
-                      page--;
-                      load();
-                    }
-                  : null,
-              child: const Text('Précédent')),
-          TextButton(
-              onPressed: result?.hasNext == true && !busy
-                  ? () {
-                      page++;
-                      load();
-                    }
-                  : null,
-              child: const Text('Suivant'))
-        ]),
+                onRefresh: () => load(),
+                child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      const Notice(
+                          'Un score mesure la compatibilité avec les données connues, jamais une probabilité d’admission.'),
+                      for (final r in items)
+                        Card(
+                            child: ListTile(
+                                title: Text(r.name),
+                                subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      EligibilityChip(r.eligibility),
+                                      Text(
+                                          'Compatibilité : ${r.score == null ? 'Indéterminée' : '${r.score!.toStringAsFixed(2)} /100'}'),
+                                      if (r.stale)
+                                        const Text(
+                                            'Profil modifié depuis le calcul'),
+                                      if (!r.sourceCurrent)
+                                        const Text(
+                                            'Guide inactif ou non déterminé'),
+                                    ]),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            RecommendationDetailPage(
+                                                apiClient: widget.apiClient,
+                                                id: r.id))))),
+                      if (!busy && result?.content.isEmpty == true)
+                        const ListTile(
+                            title: Text(
+                                'Aucune recommandation enregistrée. Vérifiez le profil confirmé et les guides disponibles.')),
+                    ]))),
+        if (result?.hasNext == true)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                      onPressed: busy ? null : () => load(more: true),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Voir plus de recommandations')))),
       ]));
 }
 
@@ -157,7 +171,7 @@ class RecommendationDetailPage extends StatelessWidget {
   const RecommendationDetailPage(
       {super.key, required this.apiClient, required this.id});
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Comprendre ma recommandation')),
       body: AsyncContent<Recommendation>(
           load: () async => Recommendation.fromJson(

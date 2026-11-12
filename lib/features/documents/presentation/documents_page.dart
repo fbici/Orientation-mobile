@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,8 @@ class DocumentsPage extends StatefulWidget {
 class _DocumentsPageState extends State<DocumentsPage> {
   late final repo = OrientationRepository(widget.apiClient);
   PageData<Json>? transcripts;
+  final documents = <Json>[];
+  int generation = 0;
   List<Json> years = [];
   String? year;
   int page = 0;
@@ -29,23 +32,33 @@ class _DocumentsPageState extends State<DocumentsPage> {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && loading) return;
+    final request = ++generation;
+    final nextPage = more ? page + 1 : 0;
     setState(() {
       loading = true;
       error = null;
+      if (!more) {
+        documents.clear();
+        transcripts = null;
+        page = 0;
+      }
     });
     try {
       final refs = await repo.references('academic-years');
-      final list = await repo.transcripts(page: page);
-      if (mounted) {
+      final list = await repo.transcripts(page: nextPage);
+      if (mounted && request == generation) {
         setState(() {
           years = refs;
           transcripts = list;
+          page = nextPage;
+          documents.addAll(list.content);
           loading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && request == generation) {
         setState(() {
           error = e;
           loading = false;
@@ -115,7 +128,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Mes relevés')),
       body: Column(children: [
         Padding(
@@ -133,14 +146,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   icon: const Icon(Icons.upload_file),
                   label: const Text('Ajouter un PDF ou une image')),
               if (uploading) LinearProgressIndicator(value: progress),
-              if (error != null) ErrorNotice(error!, onRetry: load),
+              if (error != null)
+                ErrorNotice(error!,
+                    onRetry: () => load(more: documents.isNotEmpty)),
             ])),
         if (loading) const LinearProgressIndicator(),
         Expanded(
             child: RefreshIndicator(
-                onRefresh: load,
+                onRefresh: () => load(),
                 child: ListView(children: [
-                  for (final t in transcripts?.content ?? <Json>[])
+                  for (final t in documents)
                     Card(
                         child: ListTile(
                             title:
@@ -159,24 +174,15 @@ class _DocumentsPageState extends State<DocumentsPage> {
                         title: Text(
                             'Aucun relevé. Ajoutez votre premier document.')),
                 ]))),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton(
-              onPressed: page > 0 && !loading
-                  ? () {
-                      page--;
-                      load();
-                    }
-                  : null,
-              child: const Text('Précédent')),
-          TextButton(
-              onPressed: transcripts?.hasNext == true && !loading
-                  ? () {
-                      page++;
-                      load();
-                    }
-                  : null,
-              child: const Text('Suivant'))
-        ]),
+        if (transcripts?.hasNext == true)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                      onPressed: loading ? null : () => load(more: true),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Voir plus')))),
       ]));
 }
 
@@ -193,6 +199,8 @@ class _TranscriptPageState extends State<TranscriptPage> {
   late final repo = OrientationRepository(widget.apiClient);
   List<Json> scales = [];
   PageData<TranscriptAnalysis>? history;
+  final analyses = <TranscriptAnalysis>[];
+  int generation = 0;
   final period = TextEditingController();
   String? scale;
   int page = 0;
@@ -210,27 +218,37 @@ class _TranscriptPageState extends State<TranscriptPage> {
     super.dispose();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && busy) return;
+    final request = ++generation;
+    final nextPage = more ? page + 1 : 0;
     setState(() {
       busy = true;
       error = null;
+      if (!more) {
+        analyses.clear();
+        history = null;
+        page = 0;
+      }
     });
     try {
       final refs = await repo.references('grade-scales');
-      final h =
-          await repo.analyses(widget.transcript['id'] as String, page: page);
-      if (mounted) {
+      final h = await repo.analyses(widget.transcript['id'] as String,
+          page: nextPage);
+      if (mounted && request == generation) {
         setState(() {
           scales = refs
               .where((s) =>
                   s['academicYearId'] == widget.transcript['academicYearId'])
               .toList();
           history = h;
+          page = nextPage;
+          analyses.addAll(h.content);
           busy = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && request == generation) {
         setState(() {
           error = e;
           busy = false;
@@ -272,7 +290,7 @@ class _TranscriptPageState extends State<TranscriptPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Analyse et versions')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Text(text(widget.transcript['originalFileName'])),
@@ -294,8 +312,9 @@ class _TranscriptPageState extends State<TranscriptPage> {
           const Text(
               'Traitement en cours. En cas d’interruption, consultez les versions avant de relancer.')
         ],
-        if (error != null) ErrorNotice(error!, onRetry: load),
-        for (final a in history?.content ?? <TranscriptAnalysis>[])
+        if (error != null)
+          ErrorNotice(error!, onRetry: () => load(more: analyses.isNotEmpty)),
+        for (final a in analyses)
           Card(
               child: ListTile(
                   title: Text(a.confirmed
@@ -304,24 +323,15 @@ class _TranscriptPageState extends State<TranscriptPage> {
                   subtitle: Text('Version : ${a.id}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => open(a))),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton(
-              onPressed: page > 0 && !busy
-                  ? () {
-                      page--;
-                      load();
-                    }
-                  : null,
-              child: const Text('Précédent')),
-          TextButton(
-              onPressed: history?.hasNext == true && !busy
-                  ? () {
-                      page++;
-                      load();
-                    }
-                  : null,
-              child: const Text('Suivant'))
-        ]),
+        if (history?.hasNext == true)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                      onPressed: busy ? null : () => load(more: true),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Voir plus')))),
       ]));
 }
 
@@ -476,7 +486,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Vérifier les notes extraites')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Notice(

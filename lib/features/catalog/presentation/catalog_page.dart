@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/data/orientation_repository.dart';
 import '../../../core/models/academic_models.dart';
@@ -23,6 +24,7 @@ class _CatalogPageState extends State<CatalogPage> {
   late final repo = OrientationRepository(widget.apiClient);
   final search = TextEditingController(), language = TextEditingController();
   PageData<CatalogItem>? result;
+  final items = <CatalogItem>[];
   Object? error;
   bool loading = true;
   int page = 0, generation = 0;
@@ -60,15 +62,22 @@ class _CatalogPageState extends State<CatalogPage> {
     }
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && loading) return;
+    final requestedPage = more ? page + 1 : 0;
     final current = ++generation;
     setState(() {
       loading = true;
       error = null;
-      result = null;
+      if (!more) {
+        items.clear();
+        result = null;
+        page = 0;
+      }
     });
     try {
-      final r = await repo.catalog(widget.resource, page: page, filters: {
+      final r =
+          await repo.catalog(widget.resource, page: requestedPage, filters: {
         ...widget.filters,
         if (search.text.trim().isNotEmpty) 'search': search.text.trim(),
         if (country != null) 'countryId': country,
@@ -78,6 +87,9 @@ class _CatalogPageState extends State<CatalogPage> {
       if (mounted && current == generation) {
         setState(() {
           result = r;
+          page = requestedPage;
+          final existing = items.map((item) => item.id).toSet();
+          items.addAll(r.content.where((item) => existing.add(item.id)));
           loading = false;
         });
       }
@@ -100,7 +112,7 @@ class _CatalogPageState extends State<CatalogPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: Text(widget.title), actions: [
         if (widget.resource == 'programs')
           TextButton(
@@ -152,72 +164,80 @@ class _CatalogPageState extends State<CatalogPage> {
               ]),
             ])),
         if (loading) const LinearProgressIndicator(),
-        if (error != null) ErrorNotice(error!, onRetry: load),
+        if (error != null)
+          ErrorNotice(error!, onRetry: () => load(more: items.isNotEmpty)),
         Expanded(
             child: RefreshIndicator(
-                onRefresh: load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  if (!loading && result?.content.isEmpty == true)
-                    const Padding(
-                        padding: EdgeInsets.all(32),
-                        child:
-                            Text('Aucun résultat vérifié pour ces filtres.')),
-                  for (final item in result?.content ?? <CatalogItem>[])
-                    Card(
-                        child: ListTile(
-                      title: Text(item.name),
-                      subtitle: Text(
-                          '${text(item.fields['countryName'] ?? item.fields['universityName'])}\n${item.verified ? 'Catalogue vérifié' : 'Vérification non déterminée'}${widget.resource == 'scholarships' ? ' • ${availabilityLabel(item.fields)}' : ''}'),
-                      isThreeLine: true,
-                      onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                              builder: (_) => CatalogDetailPage(
-                                  apiClient: widget.apiClient,
-                                  resource: widget.resource,
-                                  id: item.id))),
-                      trailing: widget.resource == 'programs'
-                          ? Checkbox(
-                              value: selected.containsKey(item.id),
-                              onChanged: (v) {
-                                if (v == true && selected.length >= 6) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Six formations au maximum.')));
-                                  return;
-                                }
-                                setState(() {
-                                  v == true
-                                      ? selected[item.id] = item
-                                      : selected.remove(item.id);
-                                });
-                              })
-                          : const Icon(Icons.chevron_right),
-                    )),
-                ]))),
-        SafeArea(
-            top: false,
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                      onPressed: page > 0 && !loading
-                          ? () {
-                              page--;
-                              load();
-                            }
-                          : null,
-                      child: const Text('Précédent')),
-                  Text('Page ${page + 1}'),
-                  TextButton(
-                      onPressed: result?.hasNext == true && !loading
-                          ? () {
-                              page++;
-                              load();
-                            }
-                          : null,
-                      child: const Text('Suivant')),
-                ])),
+                onRefresh: () => load(),
+                child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      if (!loading && result?.content.isEmpty == true)
+                        const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text(
+                                'Aucun résultat vérifié pour ces filtres.')),
+                      for (final item in items)
+                        Card(
+                            child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 14),
+                          leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFFF0EAFE),
+                                  borderRadius: BorderRadius.circular(16)),
+                              child: Icon(
+                                  widget.resource == 'scholarships'
+                                      ? Icons.savings_outlined
+                                      : widget.resource == 'programs'
+                                          ? Icons.menu_book_rounded
+                                          : Icons.account_balance_outlined,
+                                  color: const Color(0xFF6633CC))),
+                          title: Text(item.name,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(
+                              '${text(item.fields['countryName'] ?? item.fields['universityName'])}\n${item.verified ? 'Catalogue vérifié' : 'Vérification non déterminée'}${widget.resource == 'scholarships' ? ' • ${availabilityLabel(item.fields)}' : ''}'),
+                          isThreeLine: true,
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                  builder: (_) => CatalogDetailPage(
+                                      apiClient: widget.apiClient,
+                                      resource: widget.resource,
+                                      id: item.id))),
+                          trailing: widget.resource == 'programs'
+                              ? Checkbox(
+                                  value: selected.containsKey(item.id),
+                                  onChanged: (v) {
+                                    if (v == true && selected.length >= 6) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(
+                                              content: Text(
+                                                  'Six formations au maximum.')));
+                                      return;
+                                    }
+                                    setState(() {
+                                      v == true
+                                          ? selected[item.id] = item
+                                          : selected.remove(item.id);
+                                    });
+                                  })
+                              : const Icon(Icons.chevron_right),
+                        )),
+                    ]))),
+        if (result?.hasNext == true)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                      onPressed: loading ? null : () => load(more: true),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(loading
+                          ? 'Chargement…'
+                          : 'Voir plus de résultats')))),
       ]));
 }
 
@@ -232,15 +252,13 @@ class CatalogDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repo = OrientationRepository(apiClient);
-    return Scaffold(
+    return BusinessScaffold(
         appBar: AppBar(title: const Text('Détails et sources')),
         body: AsyncContent<List<Object>>(load: () async {
           final detail = await repo.detail(resource, id);
           final sources = await repo.sources(resource, id);
           final rules = resource == 'programs'
-              ? objects(object((await apiClient.call('/admission-criteria',
-                      query: {'programId': id, 'size': 100}))
-                  .data)['content'])
+              ? await repo.admissionCriteria(id)
               : <Json>[];
           return [detail, sources, rules];
         }, builder: (values, reload) {
@@ -288,10 +306,14 @@ class CatalogDetailPage extends StatelessWidget {
             ],
             if (resource == 'universities') ...[
               _related(context, 'Campus', 'campuses', {'universityId': id}),
+              _related(context, 'Facultés et écoles', 'faculties',
+                  {'universityId': id}),
               _related(context, 'Formations', 'programs', {'universityId': id}),
             ],
-            if (resource == 'campuses')
+            if (resource == 'campuses') ...[
               _related(context, 'Facultés', 'faculties', {'campusId': id}),
+              _related(context, 'Formations', 'programs', {'campusId': id}),
+            ],
             if (resource == 'faculties')
               _related(context, 'Formations', 'programs', {'facultyId': id}),
             if (resource == 'programs') SourceDetails(values[2] as List<Json>),

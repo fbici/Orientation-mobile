@@ -41,12 +41,13 @@ void main() {
   testWidgets(
       'documentary chat facts link to the catalogue without an eligibility verdict',
       (tester) async {
+    Json? savedMessage;
     final api = clientFor((r, s) {
       if (r.path == '/ai/chat/sessions' && r.method == 'POST') {
         return jsonResponse({'sessionId': 'session'});
       }
       if (r.path.endsWith('/messages') && r.method == 'POST') {
-        return jsonResponse({
+        savedMessage = {
           'id': 'message',
           'status': 'ANSWERED',
           'intent': 'SEARCH',
@@ -61,6 +62,16 @@ void main() {
               'sources': []
             }
           ]
+        };
+        return jsonResponse(savedMessage);
+      }
+      if (r.path.endsWith('/messages')) {
+        return jsonResponse({
+          'content': [
+            if (savedMessage != null) {'id': 'message', 'result': savedMessage}
+          ],
+          'totalPages': 1,
+          'last': true
         });
       }
       if (r.path == '/programs/program') {
@@ -131,8 +142,14 @@ void main() {
     expect(find.text('Votre prochaine étape'), findsOneWidget);
     await tester.tap(find.text('Explorer').last);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Universités'));
+    await tester.pumpAndSettle();
     expect(
         find.text('Aucun résultat vérifié pour ces filtres.'), findsOneWidget);
+    Navigator.of(tester
+            .element(find.text('Aucun résultat vérifié pour ces filtres.')))
+        .pop();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
     expect(find.text('synthetic@example.test'), findsOneWidget);

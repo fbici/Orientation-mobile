@@ -1,3 +1,4 @@
+import '../../../core/widgets/business_scaffold.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/data/orientation_repository.dart';
@@ -27,28 +28,36 @@ class _HistoryPageState extends State<HistoryPage> {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && loading) return;
+    final nextPage = more ? page + 1 : 0;
     final request = ++generation;
     setState(() {
       loading = true;
       error = null;
-      decisions = [];
-      runs = [];
+      if (!more) {
+        decisions = [];
+        runs = [];
+        page = 0;
+        hasNext = false;
+      }
     });
     try {
       if (kind == 'RECOMMENDATIONS') {
-        final result = await repo.recommendationRuns(page: page);
+        final result = await repo.recommendationRuns(page: nextPage);
         if (mounted && request == generation) {
           setState(() {
-            runs = result.content;
+            runs = [...runs, ...result.content];
+            page = nextPage;
             hasNext = result.hasNext;
           });
         }
       } else {
-        final result = await repo.history(kind, page: page);
+        final result = await repo.history(kind, page: nextPage);
         if (mounted && request == generation) {
           setState(() {
-            decisions = result.content;
+            decisions = [...decisions, ...result.content];
+            page = nextPage;
             hasNext = result.hasNext;
           });
         }
@@ -61,7 +70,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Mon historique')),
       body: Column(children: [
         Padding(
@@ -91,7 +100,10 @@ class _HistoryPageState extends State<HistoryPage> {
                   }
                 })),
         if (loading) const LinearProgressIndicator(),
-        if (error != null) ErrorNotice(error!, onRetry: load),
+        if (error != null)
+          ErrorNotice(error!,
+              onRetry: () =>
+                  load(more: decisions.isNotEmpty || runs.isNotEmpty)),
         Expanded(
             child: ListView(padding: const EdgeInsets.all(12), children: [
           for (final d in decisions)
@@ -127,23 +139,15 @@ class _HistoryPageState extends State<HistoryPage> {
             const ListTile(
                 title: Text('Aucun historique pour cette sélection.')),
         ])),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton(
-              onPressed: page > 0 && !loading
-                  ? () {
-                      page--;
-                      load();
-                    }
-                  : null,
-              child: const Text('Précédent')),
-          TextButton(
-              onPressed: hasNext && !loading
-                  ? () {
-                      page++;
-                      load();
-                    }
-                  : null,
-              child: const Text('Suivant'))
-        ]),
+        if (hasNext)
+          SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                      onPressed: loading ? null : () => load(more: true),
+                      icon: const Icon(Icons.history_rounded),
+                      label:
+                          const Text('Afficher les résultats plus anciens')))),
       ]));
 }

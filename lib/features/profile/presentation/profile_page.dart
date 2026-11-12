@@ -1,6 +1,12 @@
-import '../../../core/widgets/international_phone_field.dart';
+import '../../../core/widgets/business_scaffold.dart';
+import 'account_edit_dialog.dart';
+import 'account_deletion_page.dart';
+import '../../navigation/presentation/workspace_pages.dart';
+import '../../chat/presentation/chat_page.dart';
+import '../../recommendations/presentation/recommendations_page.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_failure.dart';
 import '../../../core/models/academic_models.dart';
 import '../../../core/widgets/academic_widgets.dart';
 import '../../documents/presentation/documents_page.dart';
@@ -20,108 +26,34 @@ class _ProfilePageState extends State<ProfilePage> {
   int revision = 0;
   Object? error;
   Future<void> account(Json me, bool password) async {
-    final first =
-            TextEditingController(text: me['firstName']?.toString() ?? ''),
-        last = TextEditingController(text: me['lastName']?.toString() ?? '');
-    final phone = PhoneController(
-        initialValue: const PhoneNumber(isoCode: IsoCode.BJ, nsn: ''));
-    final accountForm = GlobalKey<FormState>();
-    final old = TextEditingController(), fresh = TextEditingController();
-    bool confirmed = false;
-    final yes = await showDialog<bool>(
-        context: context,
-        builder: (c) => StatefulBuilder(
-            builder: (c, update) => AlertDialog(
-                    title: Text(password
-                        ? 'Changer le mot de passe'
-                        : 'Modifier mes coordonnées'),
-                    content: SingleChildScrollView(
-                        child: Form(
-                            key: accountForm,
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (password) ...[
-                                    TextField(
-                                        controller: old,
-                                        obscureText: true,
-                                        decoration: const InputDecoration(
-                                            labelText: 'Mot de passe actuel')),
-                                    TextField(
-                                        controller: fresh,
-                                        obscureText: true,
-                                        maxLength: 72,
-                                        decoration: const InputDecoration(
-                                            labelText:
-                                                'Nouveau mot de passe — 12 caractères minimum'))
-                                  ] else ...[
-                                    TextField(
-                                        controller: first,
-                                        decoration: const InputDecoration(
-                                            labelText: 'Prénom')),
-                                    TextField(
-                                        controller: last,
-                                        decoration: const InputDecoration(
-                                            labelText: 'Nom')),
-                                    InternationalPhoneField(controller: phone),
-                                    const Text(
-                                        'Le numéro actuel n’est pas retourné par le serveur. Un champ vide supprimera le numéro précédent.')
-                                  ],
-                                  CheckboxListTile(
-                                      value: confirmed,
-                                      onChanged: (v) =>
-                                          update(() => confirmed = v ?? false),
-                                      title: const Text(
-                                          'Je confirme le remplacement de ces informations.')),
-                                ]))),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(c, false),
-                          child: const Text('Annuler')),
-                      FilledButton(
-                          onPressed: confirmed
-                              ? () {
-                                  if (accountForm.currentState?.validate() !=
-                                      false) {
-                                    Navigator.pop(c, true);
-                                  }
-                                }
-                              : null,
-                          child: const Text('Enregistrer'))
-                    ])));
-    if (yes == true) {
-      try {
-        if (password) {
-          if (fresh.text.length < 12) {
-            throw const FormatException('Mot de passe trop court');
-          }
-          await widget.apiClient.changePassword(old.text, fresh.text);
-          try {
-            await widget.apiClient.logout();
-          } catch (_) {}
-        } else {
-          if (first.text.trim().isEmpty || last.text.trim().isEmpty) {
-            throw const FormatException('Nom requis');
-          }
-          await widget.apiClient.updateMe({
-            'firstName': first.text.trim(),
-            'lastName': last.text.trim(),
-            'phone': normalizedPhone(phone.value)
-          });
-          if (mounted) setState(() => revision++);
-        }
-      } catch (e) {
-        if (mounted) setState(() => error = e);
-      }
+    if (!password && !me.containsKey('phone')) {
+      setState(() => error = const ApiFailure(
+          'Le serveur doit être mis à jour avant de modifier les coordonnées sans risquer de perdre votre téléphone.'));
+      return;
     }
-    phone.dispose();
-    for (final controller in [first, last, old, fresh]) {
-      controller.dispose();
+    final saved = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AccountEditDialog(
+            apiClient: widget.apiClient, me: me, password: password));
+    if (saved != true || !mounted) return;
+    if (password) {
+      try {
+        await widget.apiClient.logout();
+      } catch (_) {}
+      if (mounted) widget.onLogout();
+    } else {
+      setState(() {
+        revision++;
+        error = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Coordonnées enregistrées.')));
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BusinessScaffold(
       appBar: AppBar(title: const Text('Mon profil')),
       body: AsyncContent<Json>(
           key: ValueKey(revision),
@@ -163,6 +95,47 @@ class _ProfilePageState extends State<ProfilePage> {
                             builder: (_) =>
                                 HistoryPage(apiClient: widget.apiClient)))),
                 ListTile(
+                    leading: const Icon(Icons.auto_awesome_outlined),
+                    title: const Text('Mes recommandations'),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) => RecommendationsPage(
+                                apiClient: widget.apiClient)))),
+                ListTile(
+                    leading: const Icon(Icons.chat_outlined),
+                    title: const Text('Mes conversations'),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) =>
+                                ChatPage(apiClient: widget.apiClient)))),
+                ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('Paramètres'),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (settingsContext) => SettingsPage(
+                                  editAccount: () {
+                                    Navigator.pop(settingsContext);
+                                    account(me, false);
+                                  },
+                                  changePassword: () {
+                                    Navigator.pop(settingsContext);
+                                    account(me, true);
+                                  },
+                                  logout: () async {
+                                    try {
+                                      await widget.apiClient.logout();
+                                    } catch (_) {}
+                                    if (settingsContext.mounted) {
+                                      Navigator.pop(settingsContext);
+                                    }
+                                    widget.onLogout();
+                                  },
+                                )))),
+                ListTile(
                     leading: const Icon(Icons.manage_accounts_outlined),
                     title: const Text('Modifier mes coordonnées'),
                     onTap: () => account(me, false)),
@@ -170,6 +143,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     leading: const Icon(Icons.password),
                     title: const Text('Changer mon mot de passe'),
                     onTap: () => account(me, true)),
+                ListTile(
+                    leading: const Icon(Icons.person_remove_outlined),
+                    title: const Text('Supprimer mon compte'),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) => AccountDeletionPage(
+                                apiClient: widget.apiClient,
+                                onLogout: widget.onLogout)))),
                 FilledButton.icon(
                     onPressed: () async {
                       try {
